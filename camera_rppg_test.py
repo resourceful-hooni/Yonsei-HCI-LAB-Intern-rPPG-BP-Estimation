@@ -5,6 +5,10 @@
     - opencv-python
     - tensorflow-gpu==2.4.1
     - kapre
+    - scipy (필터링용)
+
+Phase 2 개선사항:
+    - POS 알고리즘 통합 가능 (pos_algorithm.py)
 """
 
 import os
