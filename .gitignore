@@ -1,2 +1,22 @@
+# Virtual envs
 venv/
+env/
+
+# Editors/IDE
 .idea/
+.vs/
+
+# Byte-compiled / cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large data/model files
+data/*.h5
+data/*.hdf5
+
+# Checkpoints / logs
+checkpoints/
+logs/
+results/
