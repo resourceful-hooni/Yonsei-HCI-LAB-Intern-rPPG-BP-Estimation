@@ -305,14 +305,19 @@ def main():
             # 프레임 처리
             extractor.process_frame(frame)
             
-            # ROI 시각화
-            roi = extractor.detector.detect(frame)
-            if roi is not None:
-                h_roi, w_roi = roi.shape[:2]
-                h, w = frame.shape[:2]
-                
-                # ROI 위치 추정 (대략적)
-                cv2.rectangle(frame, (0, 0), (w_roi, h_roi), (0, 255, 0), 2)
+            # ROI 시각화 (정확한 좌표 표시)
+            if isinstance(extractor.detector, HaarCascadeFaceDetector):
+                face_rect = extractor.detector.get_last_face_rect()
+                if face_rect is not None:
+                    x, y, w, h = face_rect
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
+                    cv2.putText(frame, f"Face {w}x{h}", (x, y-10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            else:
+                roi = extractor.detector.detect(frame)
+                if roi is not None:
+                    h_roi, w_roi = roi.shape[:2]
+                    cv2.rectangle(frame, (0, 0), (w_roi, h_roi), (0, 255, 0), 2)
             
             # 진행률
             progress = len(extractor.frame_buffer) / extractor.window_size * 100

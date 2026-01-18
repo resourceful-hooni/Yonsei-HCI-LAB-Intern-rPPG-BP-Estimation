@@ -39,13 +39,16 @@ class MediaPipeFaceDetector:
             얼굴 ROI (numpy array) 또는 None
         """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # 명암비 증가로 감지율 개선
+        gray = cv2.equalizeHist(gray)
         
         faces = self.face_cascade.detectMultiScale(
             gray,
-            scaleFactor=1.1,
-            minNeighbors=self.min_neighbors,
-            minSize=(100, 100),
-            maxSize=(400, 400)
+            scaleFactor=1.05,
+            minNeighbors=4,
+            flags=cv2.CASCADE_SCALE_IMAGE,
+            minSize=(80, 80),
+            maxSize=(450, 450)
         )
         
         if len(faces) == 0:
@@ -101,12 +104,16 @@ class MediaPipeFaceDetector:
         h, w = frame.shape[:2]
         
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # 명암비 증가로 감지율 개선
+        gray = cv2.equalizeHist(gray)
+        
         faces = self.face_cascade.detectMultiScale(
             gray,
-            scaleFactor=1.1,
-            minNeighbors=self.min_neighbors,
-            minSize=(100, 100),
-            maxSize=(400, 400)
+            scaleFactor=1.05,
+            minNeighbors=4,
+            flags=cv2.CASCADE_SCALE_IMAGE,
+            minSize=(80, 80),
+            maxSize=(450, 450)
         )
         
         if len(faces) == 0:
@@ -139,6 +146,7 @@ class HaarCascadeFaceDetector:
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
         self.min_neighbors = min_neighbors
+        self.last_face_rect = None  # 마지막 감지된 얼굴 위치
     
     def detect(self, frame: np.ndarray) -> Optional[np.ndarray]:
         """
@@ -151,13 +159,16 @@ class HaarCascadeFaceDetector:
             얼굴 ROI 또는 None
         """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # 명암비 증가로 감지율 개선
+        gray = cv2.equalizeHist(gray)
         
         faces = self.face_cascade.detectMultiScale(
             gray,
-            scaleFactor=1.1,
-            minNeighbors=self.min_neighbors,
-            minSize=(100, 100),
-            maxSize=(400, 400)
+            scaleFactor=1.05,
+            minNeighbors=4,
+            flags=cv2.CASCADE_SCALE_IMAGE,
+            minSize=(80, 80),
+            maxSize=(450, 450)
         )
         
         if len(faces) == 0:
@@ -165,9 +176,19 @@ class HaarCascadeFaceDetector:
         
         # 가장 큰 얼굴
         x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+        self.last_face_rect = (x, y, w, h)  # 좌표 저장
         roi = frame[y:y+h, x:x+w]
         
         return roi
+    
+    def get_last_face_rect(self) -> Optional[Tuple[int, int, int, int]]:
+        """
+        마지막 감지된 얼굴의 좌표 반환
+        
+        Returns:
+            (x, y, w, h) 또는 None
+        """
+        return self.last_face_rect
 
 
 # 성능 비교용 테스트
