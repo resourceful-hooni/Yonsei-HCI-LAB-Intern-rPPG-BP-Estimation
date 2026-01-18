@@ -295,6 +295,12 @@ def main():
     print(f"\n{args.duration}초 동안 신호 수집 중...")
     print("Ctrl+C를 눌러 중단, 'q'로 종료\n")
     
+    # 상태 정보 저장용
+    last_sbp, last_dbp, last_hr = None, None, None
+    frame_count = 0
+    import time
+    start_time = time.time()
+    
     try:
         while True:
             ret, frame = cap.read()
@@ -302,16 +308,23 @@ def main():
                 print("❌ 프레임을 읽을 수 없습니다")
                 break
             
+            frame_count += 1
+            current_fps = frame_count / (time.time() - start_time)
+            
             # 프레임 처리
             extractor.process_frame(frame)
+            
+            # 화면 정보 표시 영역 생성 (오른쪽 패널)
+            h, w = frame.shape[:2]
+            info_panel = np.zeros((h, 300, 3), dtype=np.uint8)
             
             # ROI 시각화 (정확한 좌표 표시)
             if isinstance(extractor.detector, HaarCascadeFaceDetector):
                 face_rect = extractor.detector.get_last_face_rect()
                 if face_rect is not None:
-                    x, y, w, h = face_rect
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
-                    cv2.putText(frame, f"Face {w}x{h}", (x, y-10), 
+                    x, y, w_face, h_face = face_rect
+                    cv2.rectangle(frame, (x, y), (x+w_face, y+h_face), (0, 255, 0), 3)
+                    cv2.putText(frame, f"Face {w_face}x{h_face}", (x, y-10), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             else:
                 roi = extractor.detector.detect(frame)
@@ -324,7 +337,112 @@ def main():
             cv2.putText(frame, f"Progress: {progress:.1f}%", 
                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
-            cv2.imshow('Advanced rPPG', frame)
+            # === 정보 패널 그리기 ===
+            y_offset = 30
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.6
+            thickness = 1
+            color = (255, 255, 255)
+            
+            # 제목
+            cv2.putText(info_panel, "rPPG BP Monitor", (10, y_offset), 
+                       font, 0.8, (0, 255, 255), 2)
+            y_offset += 40
+            
+            # FPS
+            cv2.putText(info_panel, f"FPS: {current_fps:.1f}", (10, y_offset), 
+                       font, font_scale, color, thickness)
+            y_offset += 30
+            
+            # 프레임 수
+            cv2.putText(info_panel, f"Frames: {frame_count}", (10, y_offset), 
+                       font, font_scale, color, thickness)
+            y_offset += 30
+            
+            # 진행률 바
+            cv2.putText(info_panel, f"Buffer: {progress:.0f}%", (10, y_offset), 
+                       font, font_scale, color, thickness)
+            y_offset += 25
+            cv2.rectangle(info_panel, (10, y_offset), (290, y_offset+20), (100, 100, 100), -1)
+            cv2.rectangle(info_panel, (10, y_offset), (int(10 + 280 * progress/100), y_offset+20), 
+                         (0, 255, 0), -1)
+            y_offset += 40
+            
+            # 구분선
+            cv2.line(info_panel, (10, y_offset), (290, y_offset), (100, 100, 100), 1)
+            y_offset += 30
+            
+            # 혈압 정보
+            if last_sbp is not None:
+                cv2.putText(info_panel, "Blood Pressure:", (10, y_offset), 
+                           font, 0.7, (0, 255, 255), 2)
+                y_offset += 35
+                
+                sbp_color = (0, 255, 0) if 90 <= last_sbp <= 140 else (0, 165, 255)
+                cv2.putText(info_panel, f"SBP: {last_sbp:.1f} mmHg", (10, y_offset), 
+                           font, font_scale, sbp_color, thickness)
+                y_offset += 30
+                
+                dbp_color = (0, 255, 0) if 60 <= last_dbp <= 90 else (0, 165, 255)
+                cv2.putText(info_panel, f"DBP: {last_dbp:.1f} mmHg", (10, y_offset), 
+                           font, font_scale, dbp_color, thickness)
+                y_offset += 40
+            else:
+                cv2.putText(info_panel, "BP: Waiting...", (10, y_offset), 
+                           font, font_scale, (128, 128, 128), thickness)
+                y_offset += 40
+            
+            # 심박수
+            if last_hr is not None:
+                hr_color = (0, 255, 0) if 60 <= last_hr <= 100 else (0, 165, 255)
+                cv2.putText(info_panel, f"Heart Rate: {last_hr:.1f} bpm", (10, y_offset), 
+                           font, 0.7, hr_color, 2)
+                y_offset += 40
+            else:
+                cv2.putText(info_panel, "HR: Waiting...", (10, y_offset), 
+                           font, font_scale, (128, 128, 128), thickness)
+                y_offset += 40
+            
+            # 구분선
+            cv2.line(info_panel, (10, y_offset), (290, y_offset), (100, 100, 100), 1)
+            y_offset += 30
+            
+            # 신호 그래프
+            if len(extractor.signal_buffer) > 1:
+                cv2.putText(info_panel, "PPG Signal:", (10, y_offset), 
+                           font, font_scale, color, thickness)
+                y_offset += 25
+                
+                # 신호 정규화 및 그래프 그리기
+                signal_data = np.array(list(extractor.signal_buffer))
+                signal_norm = (signal_data - signal_data.min()) / (signal_data.max() - signal_data.min() + 1e-10)
+                
+                graph_height = 100
+                graph_width = 280
+                graph_x = 10
+                graph_y = y_offset
+                
+                # 그래프 배경
+                cv2.rectangle(info_panel, (graph_x, graph_y), 
+                             (graph_x + graph_width, graph_y + graph_height), 
+                             (50, 50, 50), -1)
+                
+                # 신호 그리기
+                points = []
+                for i, val in enumerate(signal_norm):
+                    x = int(graph_x + (i / len(signal_norm)) * graph_width)
+                    y = int(graph_y + graph_height - val * graph_height)
+                    points.append((x, y))
+                
+                for i in range(len(points) - 1):
+                    cv2.line(info_panel, points[i], points[i+1], (0, 255, 0), 2)
+                
+                y_offset += graph_height + 20
+            
+            # 프레임과 정보 패널 결합
+            combined = np.hstack([frame, info_panel])
+            
+            cv2.imshow('Advanced rPPG', combined)
             
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -339,11 +457,25 @@ def main():
                     print("[진행 중] 혈압 예측...")
                     sbp, dbp = predict_bp(model, signal)
                     
+                    # POS 알고리즘에서 심박수 추출
+                    if hasattr(extractor, 'pos') and extractor.use_pos:
+                        try:
+                            frames = list(extractor.frame_buffer)
+                            _, hr = extractor.pos.extract(frames, extractor.detector.detect)
+                            last_hr = hr
+                        except:
+                            pass
+                    
+                    last_sbp = sbp
+                    last_dbp = dbp
+                    
                     print("\n" + "="*80)
                     print("예측 결과")
                     print("="*80)
                     print(f"수축기 혈압 (SBP): {sbp:.1f} mmHg")
                     print(f"이완기 혈압 (DBP): {dbp:.1f} mmHg")
+                    if last_hr:
+                        print(f"심박수 (HR): {last_hr:.1f} bpm")
                     print("="*80)
                     
                     # 유효성 확인
