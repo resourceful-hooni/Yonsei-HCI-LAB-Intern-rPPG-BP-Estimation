@@ -1,11 +1,13 @@
 """
-camera_rppg_advanced.py - Phase 2 완전 구현: POS + MediaPipe + Transfer Learning 지원
+camera_rppg_advanced.py - Phase 2 개선: 신호 품질 향상 + POS + ROI 안정화
 
 이 스크립트는 다음을 포함합니다:
 1. MediaPipe 얼굴 감지 (Haar Cascade 대체)
 2. POS 알고리즘 (Green 채널 대체)
 3. 적절한 리샘플링 (scipy.signal.resample)
-4. Transfer Learning 지원 (rPPG 데이터로 Fine-tuning)
+4. 신호 품질 평가 및 개선
+5. ROI 안정화
+6. 조명 변화 보정
 """
 
 import os
@@ -23,11 +25,13 @@ from typing import Optional, Tuple
 
 from pos_algorithm import POSExtractor
 from mediapipe_face_detector import MediaPipeFaceDetector, HaarCascadeFaceDetector
+from signal_quality import SignalQualityAssessor, ROIStabilizer
+from bp_stability import BPStabilizer
 
 
 class AdvancedRPPGExtractor:
     """
-    Phase 2: POS 알고리즘 + MediaPipe 통합
+    Phase 2 개선: POS 알고리즘 + 신호 품질 향상 + ROI 안정화
     """
     
     def __init__(self, fs: float = 30, duration: float = 7, target_len: int = 875, 
@@ -61,6 +65,14 @@ class AdvancedRPPGExtractor:
             self.pos = POSExtractor(fs=fs, window_size=1.6)
         
         self.signal_buffer = deque(maxlen=self.window_size)
+        
+        # 신호 품질 평가기 및 ROI 안정화
+        self.quality_assessor = SignalQualityAssessor(fs=fs)
+        self.roi_stabilizer = ROIStabilizer(smoothing_factor=0.7)
+        
+        # 품질 메트릭 저장
+        self.last_quality_score = 0
+        self.last_quality_metrics = {}
     
     def process_frame(self, frame: np.ndarray) -> Optional[float]:
         """
@@ -74,8 +86,21 @@ class AdvancedRPPGExtractor:
         """
         self.frame_buffer.append(frame.copy())
         
-        # ROI 추출
-        roi = self.detector.detect(frame)
+        # ROI 추출 with stabilization
+        if isinstance(self.detector, HaarCascadeFaceDetector):
+            roi = self.detector.detect(frame)
+            # ROI 좌표 안정화
+            face_rect = self.detector.get_last_face_rect()
+            if face_rect is not None:
+                stabilized_rect = self.roi_stabilizer.stabilize(face_rect)
+                if stabilized_rect is not None:
+                    x, y, w, h = stabilized_rect
+                    roi = frame[y:y+h, x:x+w]
+                    # 안정화된 좌표를 detector에 저장
+                    self.detector.last_face_rect = stabilized_rect
+        else:
+            roi = self.detector.detect(frame)
+        
         if roi is None:
             return None
         
@@ -91,7 +116,7 @@ class AdvancedRPPGExtractor:
     
     def extract_signal(self) -> Optional[np.ndarray]:
         """
-        버퍼에서 최종 신호 추출
+        버퍼에서 최종 신호 추출 (품질 개선 포함)
         
         Returns:
             정규화된 신호 (target_len, 1)
@@ -113,6 +138,40 @@ class AdvancedRPPGExtractor:
                 signal = self._extract_simple_signal()
         else:
             signal = self._extract_simple_signal()
+        
+        # === 신호 품질 개선 단계 ===
+        
+        # 1. 트렌드 제거 (조명 변화 보정)
+        signal = self.quality_assessor.detrend_signal(signal)
+        print("✓ 조명 변화 보정 완료")
+        
+        # 2. 움직임 아티팩트 감지
+        motion_mask = self.quality_assessor.detect_motion_artifacts(signal)
+        artifact_ratio = 1 - np.mean(motion_mask)
+        if artifact_ratio > 0.3:
+            print(f"⚠️  움직임 아티팩트 감지됨: {artifact_ratio*100:.1f}%")
+        
+        # 3. 적응형 필터링
+        signal = self.quality_assessor.adaptive_filtering(signal)
+        print("✓ 적응형 필터링 완료")
+        
+        # 4. 시간적 평활화
+        signal = self.quality_assessor.temporal_smoothing(signal, alpha=0.3)
+        print("✓ 시간적 평활화 완료")
+        
+        # 5. 신호 품질 평가
+        quality_score, metrics = self.quality_assessor.assess_quality(signal)
+        self.last_quality_score = quality_score
+        self.last_quality_metrics = metrics
+        
+        print(f"✓ 신호 품질 점수: {quality_score:.2f}/1.00")
+        print(f"  - SNR: {metrics['snr']:.2f} dB")
+        print(f"  - 피크 수: {metrics['num_peaks']}")
+        print(f"  - 피크 일관성: {metrics['peak_regularity']:.2f}")
+        
+        # 품질이 너무 낮으면 경고
+        if quality_score < 0.3:
+            print("⚠️  신호 품질이 낮습니다. 조명을 확인하거나 움직임을 줄이세요.")
         
         # 리샘플링
         if len(signal) != self.target_len:
@@ -292,11 +351,15 @@ def main():
         use_mediapipe=args.mediapipe
     )
     
+    # 혈압 안정화 초기화
+    bp_stabilizer = BPStabilizer(window_size=5, outlier_threshold=2.5)
+    
     print(f"\n{args.duration}초 동안 신호 수집 중...")
     print("Ctrl+C를 눌러 중단, 'q'로 종료\n")
     
     # 상태 정보 저장용
     last_sbp, last_dbp, last_hr = None, None, None
+    last_confidence = 0
     frame_count = 0
     import time
     start_time = time.time()
@@ -386,7 +449,13 @@ def main():
                 dbp_color = (0, 255, 0) if 60 <= last_dbp <= 90 else (0, 165, 255)
                 cv2.putText(info_panel, f"DBP: {last_dbp:.1f} mmHg", (10, y_offset), 
                            font, font_scale, dbp_color, thickness)
-                y_offset += 40
+                y_offset += 30
+                
+                # 신뢰도 표시
+                conf_color = (0, 255, 0) if last_confidence >= 0.7 else (0, 165, 255) if last_confidence >= 0.4 else (0, 0, 255)
+                cv2.putText(info_panel, f"Confidence: {last_confidence:.2f}", (10, y_offset), 
+                           font, 0.5, conf_color, thickness)
+                y_offset += 30
             else:
                 cv2.putText(info_panel, "BP: Waiting...", (10, y_offset), 
                            font, font_scale, (128, 128, 128), thickness)
@@ -402,6 +471,44 @@ def main():
                 cv2.putText(info_panel, "HR: Waiting...", (10, y_offset), 
                            font, font_scale, (128, 128, 128), thickness)
                 y_offset += 40
+            
+            # 신호 품질 정보
+            if hasattr(extractor, 'last_quality_score') and extractor.last_quality_score > 0:
+                cv2.line(info_panel, (10, y_offset), (290, y_offset), (100, 100, 100), 1)
+                y_offset += 25
+                
+                cv2.putText(info_panel, "Signal Quality:", (10, y_offset), 
+                           font, 0.7, (0, 255, 255), 2)
+                y_offset += 30
+                
+                # 품질 점수
+                quality_score = extractor.last_quality_score
+                quality_color = (0, 255, 0) if quality_score >= 0.7 else (0, 165, 255) if quality_score >= 0.4 else (0, 0, 255)
+                cv2.putText(info_panel, f"Score: {quality_score:.2f}/1.00", (10, y_offset), 
+                           font, font_scale, quality_color, thickness)
+                y_offset += 25
+                
+                # 품질 바
+                cv2.rectangle(info_panel, (10, y_offset), (290, y_offset+15), (100, 100, 100), -1)
+                cv2.rectangle(info_panel, (10, y_offset), (int(10 + 280 * quality_score), y_offset+15), 
+                             quality_color, -1)
+                y_offset += 25
+                
+                # SNR
+                if 'snr' in extractor.last_quality_metrics:
+                    snr = extractor.last_quality_metrics['snr']
+                    cv2.putText(info_panel, f"SNR: {snr:.1f} dB", (10, y_offset), 
+                               font, 0.5, color, thickness)
+                    y_offset += 20
+                
+                # 피크 수
+                if 'num_peaks' in extractor.last_quality_metrics:
+                    num_peaks = extractor.last_quality_metrics['num_peaks']
+                    cv2.putText(info_panel, f"Peaks: {num_peaks}", (10, y_offset), 
+                               font, 0.5, color, thickness)
+                    y_offset += 25
+            
+            y_offset += 10
             
             # 구분선
             cv2.line(info_panel, (10, y_offset), (290, y_offset), (100, 100, 100), 1)
@@ -455,7 +562,7 @@ def main():
                 signal = extractor.extract_signal()
                 if signal is not None:
                     print("[진행 중] 혈압 예측...")
-                    sbp, dbp = predict_bp(model, signal)
+                    sbp_raw, dbp_raw = predict_bp(model, signal)
                     
                     # POS 알고리즘에서 심박수 추출
                     if hasattr(extractor, 'pos') and extractor.use_pos:
@@ -465,6 +572,16 @@ def main():
                             last_hr = hr
                         except:
                             pass
+                    
+                    # === 혈압 안정화 적용 ===
+                    quality_score = extractor.last_quality_score if hasattr(extractor, 'last_quality_score') else 0.5
+                    sbp, dbp, stab_info = bp_stabilizer.stabilize(sbp_raw, dbp_raw, quality_score)
+                    last_confidence = bp_stabilizer.get_confidence()
+                    
+                    print(f"[안정화] {sbp_raw:.1f} → {sbp:.1f} mmHg (SBP), {dbp_raw:.1f} → {dbp:.1f} mmHg (DBP)")
+                    if stab_info.get('sbp_outlier') or stab_info.get('dbp_outlier'):
+                        print("⚠️  이상치 감지됨 - 안정화 필터 적용")
+                    print(f"✓ 신뢰도: {last_confidence:.2f}")
                     
                     last_sbp = sbp
                     last_dbp = dbp
@@ -476,6 +593,7 @@ def main():
                     print(f"이완기 혈압 (DBP): {dbp:.1f} mmHg")
                     if last_hr:
                         print(f"심박수 (HR): {last_hr:.1f} bpm")
+                    print(f"신뢰도: {last_confidence:.2f}/1.00")
                     print("="*80)
                     
                     # 유효성 확인
@@ -484,6 +602,12 @@ def main():
                     else:
                         print("⚠️  예측값이 정상 범위를 벗어났습니다")
                         print("   신호 품질 확인이 필요할 수 있습니다")
+                    
+                    # 신뢰도 기반 조언
+                    if last_confidence < 0.5:
+                        print("⚠️  낮은 신뢰도 - 여러 번 측정하여 평균값 사용 권장")
+                    elif last_confidence >= 0.8:
+                        print("✓ 높은 신뢰도 - 측정값이 안정적입니다")
                     
                     print("\n계속 측정하려면 'c'를 누르세요")
                     print("종료하려면 Ctrl+C를 누르세요")
