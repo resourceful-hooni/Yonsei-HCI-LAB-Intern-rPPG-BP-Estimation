@@ -261,8 +261,8 @@ def predict_bp(model, signal):
 
 def main():
     parser = argparse.ArgumentParser(description='카메라로부터 rPPG 신호 추출 및 혈압 예측')
-    parser.add_argument('--model', type=str, default='data/alexnet_ppg_nonmixed.h5',
-                        help='모델 파일 경로')
+    parser.add_argument('--model', type=str, default='data/resnet_ppg_nonmixed.h5',
+                        help='모델 파일 경로 (기본값: ResNet - Phase 1-Step 4)')
     parser.add_argument('--camera', type=int, default=0,
                         help='카메라 ID (기본값: 0 - 기본 카메라)')
     parser.add_argument('--backend', type=str, choices=['default','dshow','msmf'], default='default',
@@ -387,15 +387,27 @@ def main():
             # 프레임 처리
             signal_value = rppg.process_frame(frame)
             
-            # 얼굴 영역 시각화
+            # Phase 1-Step 3: 단일 얼굴 박스만 표시
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             face_cascade = cv2.CascadeClassifier(
                 cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
             )
-            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
             
-            for (x, y, w, h) in faces:
+            # 개선된 파라미터로 얼굴 감지
+            faces = face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=8,      # Step 1에서 최적화됨
+                minSize=(100, 100),
+                maxSize=(400, 400)
+            )
+            
+            # Step 3: 가장 큰 얼굴만 표시 (단일 박스)
+            if len(faces) > 0:
+                x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                cv2.putText(frame, "Face Detected", (x, y-10), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             
             # 진행 상황 표시
             buffer_ratio = len(rppg.signal_buffer) / rppg.window_size
