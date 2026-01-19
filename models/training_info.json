@@ -1,0 +1,5 @@
+{
+  "model": "ResNet (PPG \u2192 rPPG Domain Adaptation)",
+  "best_model": "models\\resnet_rppg_adapted.h5",
+  "epochs_trained": 50,
+  "best_epoch": 
