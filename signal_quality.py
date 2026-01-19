@@ -270,13 +270,15 @@ class ROIStabilizer:
     얼굴 ROI 안정화 (떨림 방지)
     """
     
-    def __init__(self, smoothing_factor: float = 0.7):
+    def __init__(self, smoothing_factor: float = 0.3):
         """
         Args:
             smoothing_factor: 평활화 계수 (0-1, 클수록 이전 값에 가중치)
         """
         self.smoothing_factor = smoothing_factor
         self.prev_rect = None
+        self.lost_frames = 0
+        self.max_lost_frames = 5
     
     def stabilize(self, rect: Optional[Tuple[int, int, int, int]]) -> Optional[Tuple[int, int, int, int]]:
         """
@@ -289,7 +291,13 @@ class ROIStabilizer:
             stabilized_rect: 안정화된 얼굴 박스
         """
         if rect is None:
+            self.lost_frames += 1
+            # 5프레임 이상 감지 안되면 초기화
+            if self.lost_frames > self.max_lost_frames:
+                self.prev_rect = None
             return self.prev_rect
+        
+        self.lost_frames = 0
         
         if self.prev_rect is None:
             self.prev_rect = rect

@@ -20,6 +20,7 @@ import tensorflow.keras as ks
 from kapre import STFT, Magnitude, MagnitudeToDecibel
 from scipy.signal import resample, butter, filtfilt
 import argparse
+import re
 from collections import deque
 from typing import Optional, Tuple
 
@@ -27,6 +28,7 @@ from pos_algorithm import POSExtractor
 from mediapipe_face_detector import MediaPipeFaceDetector, HaarCascadeFaceDetector
 from signal_quality import SignalQualityAssessor, ROIStabilizer
 from bp_stability import BPStabilizer
+from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 
 
 class AdvancedRPPGExtractor:
@@ -49,6 +51,10 @@ class AdvancedRPPGExtractor:
         self.target_len = target_len
         self.use_pos = use_pos
         self.use_mediapipe = use_mediapipe
+        self.signal_mean = None
+        self.signal_scale = None
+        self.label_mean = None
+        self.label_scale = None
         
         # 프레임 버퍼
         self.window_size = int(duration * fs)
@@ -73,6 +79,36 @@ class AdvancedRPPGExtractor:
         # 품질 메트릭 저장
         self.last_quality_score = 0
         self.last_quality_metrics = {}
+        
+        # 학습 시 스케일러 통계 로드
+        self.load_scaler_stats()
+    
+    def load_scaler_stats(self, info_path='data/rppg_info.txt'):
+        """학습 시 StandardScaler 통계 로드"""
+        try:
+            with open(info_path, 'r') as f:
+                text = f.read()
+            signal_mean_match = re.search(r"Signal Statistics:\s*\n\s*Mean:\s*\[([^\]]+)\]", text, re.S)
+            signal_scale_match = re.search(r"Signal Statistics:.*?Scale:\s*\[([^\]]+)\]", text, re.S)
+            label_mean_match = re.search(r"Label Statistics:\s*\n\s*Mean:\s*\[([^\]]+)\]", text, re.S)
+            label_scale_match = re.search(r"Label Statistics:.*?Scale:\s*\[([^\]]+)\]", text, re.S)
+
+            if signal_mean_match and signal_scale_match:
+                self.signal_mean = np.fromstring(signal_mean_match.group(1), sep=' ')
+                self.signal_scale = np.fromstring(signal_scale_match.group(1), sep=' ')
+                if len(self.signal_mean) != self.target_len or len(self.signal_scale) != self.target_len:
+                    print("[경고] 신호 스케일러 길이 불일치; 우회로 z-score 사용")
+                    self.signal_mean = None
+                    self.signal_scale = None
+
+            if label_mean_match and label_scale_match:
+                self.label_mean = np.fromstring(label_mean_match.group(1), sep=' ')
+                self.label_scale = np.fromstring(label_scale_match.group(1), sep=' ')
+            print("[OK] 스케일러 통계 로드 완료")
+        except FileNotFoundError:
+            print(f"[경고] 스케일러 파일 없음 ({info_path}); 우회로 z-score 및 원본 출력 사용")
+        except Exception as exc:
+            print(f"[경고] 스케일러 로드 실패: {exc}; 우회로 z-score 및 원본 출력 사용")
     
     def process_frame(self, frame: np.ndarray) -> Optional[float]:
         """
@@ -225,14 +261,17 @@ class AdvancedRPPGExtractor:
         return resampled.astype(np.float32)
     
     def _normalize(self, signal: np.ndarray) -> np.ndarray:
-        """신호 정규화"""
-        mean = np.mean(signal)
-        std = np.std(signal)
-        
-        if std > 1e-10:
-            return (signal - mean) / std
+        """신호 정규화 (학습 통계 또는 우회로 z-score)"""
+        if self.signal_mean is not None and self.signal_scale is not None:
+            return (signal - self.signal_mean) / (self.signal_scale + 1e-8)
         else:
-            return signal - mean
+            mean = np.mean(signal)
+            std = np.std(signal)
+            
+            if std > 1e-10:
+                return (signal - mean) / std
+            else:
+                return signal - mean
 
 
 def load_model(model_path: str):
@@ -243,7 +282,10 @@ def load_model(model_path: str):
         'ReLU': ks.layers.ReLU,
         'STFT': STFT,
         'Magnitude': Magnitude,
-        'MagnitudeToDecibel': MagnitudeToDecibel
+        'MagnitudeToDecibel': MagnitudeToDecibel,
+        'MultiHeadAttention': MultiHeadAttention,
+        'EncoderLayer': EncoderLayer,
+        'TransformerEncoder': TransformerEncoder
     }
     
     model = ks.models.load_model(model_path, custom_objects=dependencies)
@@ -252,7 +294,7 @@ def load_model(model_path: str):
     return model
 
 
-def predict_bp(model, signal: np.ndarray) -> Tuple[float, float]:
+def predict_bp(model, signal: np.ndarray, label_mean=None, label_scale=None) -> Tuple[float, float]:
     """혈압 예측"""
     input_data = np.expand_dims(signal, axis=0)
     prediction = model.predict(input_data, verbose=0)
@@ -266,6 +308,12 @@ def predict_bp(model, signal: np.ndarray) -> Tuple[float, float]:
         dbp = float(np.squeeze(prediction[1]))
     else:
         raise ValueError(f"예상하지 못한 모델 출력: {type(prediction)}")
+    
+    # 레이블 역변환 (정규화된 값 → mmHg)
+    if label_mean is not None and label_scale is not None:
+        if label_mean.shape[0] >= 2 and label_scale.shape[0] >= 2:
+            sbp = sbp * label_scale[0] + label_mean[0]
+            dbp = dbp * label_scale[1] + label_mean[1]
     
     return sbp, dbp
 
@@ -390,10 +438,12 @@ def main():
                     cv2.putText(frame, f"Face {w_face}x{h_face}", (x, y-10), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             else:
-                roi = extractor.detector.detect(frame)
-                if roi is not None:
-                    h_roi, w_roi = roi.shape[:2]
-                    cv2.rectangle(frame, (0, 0), (w_roi, h_roi), (0, 255, 0), 2)
+                # MediaPipe도 내부적으로 Haar Cascade 사용, last_face_rect 확인
+                if hasattr(extractor.detector, 'last_face_rect') and extractor.detector.last_face_rect is not None:
+                    x, y, w_face, h_face = extractor.detector.last_face_rect
+                    cv2.rectangle(frame, (x, y), (x+w_face, y+h_face), (0, 255, 0), 3)
+                    cv2.putText(frame, f"Face {w_face}x{h_face}", (x, y-10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
             # 진행률
             progress = len(extractor.frame_buffer) / extractor.window_size * 100
@@ -562,7 +612,7 @@ def main():
                 signal = extractor.extract_signal()
                 if signal is not None:
                     print("[진행 중] 혈압 예측...")
-                    sbp_raw, dbp_raw = predict_bp(model, signal)
+                    sbp_raw, dbp_raw = predict_bp(model, signal, extractor.label_mean, extractor.label_scale)
                     
                     # POS 알고리즘에서 심박수 추출
                     if hasattr(extractor, 'pos') and extractor.use_pos:

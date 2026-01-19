@@ -27,6 +27,7 @@ class MediaPipeFaceDetector:
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
         self.min_neighbors = 8  # Haar Cascade 파라미터
+        self.last_face_rect = None  # 마지막 얼굴 좌표 저장
     
     def detect(self, frame: np.ndarray) -> Optional[np.ndarray]:
         """
@@ -56,6 +57,7 @@ class MediaPipeFaceDetector:
         
         # 가장 큰 얼굴 선택
         x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+        self.last_face_rect = (x, y, w, h)  # 좌표 저장
         roi = frame[y:y+h, x:x+w]
         
         return roi

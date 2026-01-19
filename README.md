@@ -1,4 +1,4 @@
-# ?¥ Non-Invasive Blood Pressure Estimation Using Deep Learning
+# ?ï¿½ï¿½ Non-Invasive Blood Pressure Estimation Using Deep Learning
 
 [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/)
 [![TensorFlow 2.4](https://img.shields.io/badge/TensorFlow-2.4-orange.svg)](https://www.tensorflow.org/)
@@ -6,11 +6,11 @@
 
 **Yonsei HCI LAB Intern Project - 2026**
 
-## ?¯ Project Overview
+## ?ï¿½ï¿½ Project Overview
 
 A comprehensive deep learning system for non-invasive blood pressure (BP) estimation from remote photoplethysmography (rPPG) signals. This project implements and compares multiple state-of-the-art architectures, achieving clinical-grade accuracy with models optimized for edge deployment.
 
-### ?† Key Achievements
+### ?ï¿½ï¿½ Key Achievements
 
 ```
 ??Clinical-grade accuracy: SBP 0.84 mmHg / DBP 0.82 mmHg (91% better than AAMI standard)
@@ -20,7 +20,7 @@ A comprehensive deep learning system for non-invasive blood pressure (BP) estima
 ??Fully reproducible pipeline with comprehensive documentation
 ```
 
-### ?“Š Model Performance Comparison
+### ?ï¿½ï¿½ Model Performance Comparison
 
 | Model | SBP MAE | DBP MAE | Parameters | Size | Inference | Status |
 |-------|---------|---------|------------|------|-----------|--------|
@@ -33,7 +33,7 @@ A comprehensive deep learning system for non-invasive blood pressure (BP) estima
 
 ---
 
-## ?“‹ Research Foundation
+## ?ï¿½ï¿½ Research Foundation
 
 Based on and extending: "Assessment of non-invasive blood pressure prediction from PPG and rPPG signals using deep learning" ([Schrumpf et al., 2021](https://www.mdpi.com/1424-8220/21/18/6022))
 
@@ -116,72 +116,72 @@ python export_onnx.py
 
 ---
 
-## ?“ Project Structure
+## ?ï¿½ï¿½ Project Structure
 
 ```
 non-invasive-bp-estimation-using-deep-learning/
 ??
-?œâ??€ ?“Š Data & Models
-??  ?œâ??€ data/
-??  ??  ?œâ??€ rPPG-BP-UKL_rppg_7s.h5          # Preprocessed dataset (7,851 samples)
-??  ??  ?œâ??€ rppg_train.h5                    # Training set (70%)
-??  ??  ?œâ??€ rppg_val.h5                      # Validation set (15%)
-??  ??  ?”â??€ rppg_test.h5                     # Test set (15%)
+?ï¿½ï¿½??ï¿½ ?ï¿½ï¿½ Data & Models
+??  ?ï¿½ï¿½??ï¿½ data/
+??  ??  ?ï¿½ï¿½??ï¿½ rPPG-BP-UKL_rppg_7s.h5          # Preprocessed dataset (7,851 samples)
+??  ??  ?ï¿½ï¿½??ï¿½ rppg_train.h5                    # Training set (70%)
+??  ??  ?ï¿½ï¿½??ï¿½ rppg_val.h5                      # Validation set (15%)
+??  ??  ?ï¿½ï¿½??ï¿½ rppg_test.h5                     # Test set (15%)
 ??  ??
-??  ?”â??€ models/
-??      ?œâ??€ resnet_rppg_adapted.h5           # Domain Adaptation (62.1 MB)
-??      ?œâ??€ multi_task_bp_model.h5           # Multi-Task (9.7 MB)
-??      ?œâ??€ transformer_bp_model.h5          # Transformer (7.7 MB)
-??      ?”â??€ onnx/
-??          ?œâ??€ multi_task.onnx              # MTL ONNX (3.17 MB)
-??          ?”â??€ transformer.onnx             # Transformer ONNX (2.29 MB)
+??  ?ï¿½ï¿½??ï¿½ models/
+??      ?ï¿½ï¿½??ï¿½ resnet_rppg_adapted.h5           # Domain Adaptation (62.1 MB)
+??      ?ï¿½ï¿½??ï¿½ multi_task_bp_model.h5           # Multi-Task (9.7 MB)
+??      ?ï¿½ï¿½??ï¿½ transformer_bp_model.h5          # Transformer (7.7 MB)
+??      ?ï¿½ï¿½??ï¿½ onnx/
+??          ?ï¿½ï¿½??ï¿½ multi_task.onnx              # MTL ONNX (3.17 MB)
+??          ?ï¿½ï¿½??ï¿½ transformer.onnx             # Transformer ONNX (2.29 MB)
 ??
-?œâ??€ ?§  Model Architectures
-??  ?œâ??€ models/
-??  ??  ?œâ??€ define_ResNet_1D.py              # ResNet for 1D signals
-??  ??  ?œâ??€ define_LSTM.py                   # LSTM implementation
-??  ??  ?”â??€ slapnicar_model.py               # Slapnicar architecture
-??  ?œâ??€ multi_task_model.py                  # Multi-Task Learning model
-??  ?”â??€ transformer_model.py                 # Transformer with Multi-Head Attention
+?ï¿½ï¿½??ï¿½ ?ï¿½ï¿½ Model Architectures
+??  ?ï¿½ï¿½??ï¿½ models/
+??  ??  ?ï¿½ï¿½??ï¿½ define_ResNet_1D.py              # ResNet for 1D signals
+??  ??  ?ï¿½ï¿½??ï¿½ define_LSTM.py                   # LSTM implementation
+??  ??  ?ï¿½ï¿½??ï¿½ slapnicar_model.py               # Slapnicar architecture
+??  ?ï¿½ï¿½??ï¿½ multi_task_model.py                  # Multi-Task Learning model
+??  ?ï¿½ï¿½??ï¿½ transformer_model.py                 # Transformer with Multi-Head Attention
 ??
-?œâ??€ ?”¬ Training & Evaluation
-??  ?œâ??€ prepare_rppg_dataset.py              # Data preprocessing pipeline
-??  ?œâ??€ domain_adaptation.py                 # Phase 3-1: Transfer learning
-??  ?œâ??€ train_multi_task.py                  # Phase 3-2: Multi-task training
-??  ?œâ??€ train_transformer.py                 # Phase 4: Transformer training
-??  ?œâ??€ visualize_domain_adaptation.py       # Phase 3-1 visualization
-??  ?œâ??€ visualize_multi_task.py              # Phase 3-2 visualization
-??  ?”â??€ visualize_transformer.py             # Phase 4 visualization
+?ï¿½ï¿½??ï¿½ ?ï¿½ï¿½ Training & Evaluation
+??  ?ï¿½ï¿½??ï¿½ prepare_rppg_dataset.py              # Data preprocessing pipeline
+??  ?ï¿½ï¿½??ï¿½ domain_adaptation.py                 # Phase 3-1: Transfer learning
+??  ?ï¿½ï¿½??ï¿½ train_multi_task.py                  # Phase 3-2: Multi-task training
+??  ?ï¿½ï¿½??ï¿½ train_transformer.py                 # Phase 4: Transformer training
+??  ?ï¿½ï¿½??ï¿½ visualize_domain_adaptation.py       # Phase 3-1 visualization
+??  ?ï¿½ï¿½??ï¿½ visualize_multi_task.py              # Phase 3-2 visualization
+??  ?ï¿½ï¿½??ï¿½ visualize_transformer.py             # Phase 4 visualization
 ??
-?œâ??€ ?? Real-Time System
-??  ?œâ??€ camera_rppg_advanced.py              # Main real-time application
-??  ?œâ??€ pos_algorithm.py                     # POS signal extraction
-??  ?œâ??€ signal_quality.py                    # Quality assessment
-??  ?œâ??€ bp_stability.py                      # Kalman filtering
-??  ?”â??€ mediapipe_face_detector.py           # Face detection
+?ï¿½ï¿½??ï¿½ ?? Real-Time System
+??  ?ï¿½ï¿½??ï¿½ camera_rppg_advanced.py              # Main real-time application
+??  ?ï¿½ï¿½??ï¿½ pos_algorithm.py                     # POS signal extraction
+??  ?ï¿½ï¿½??ï¿½ signal_quality.py                    # Quality assessment
+??  ?ï¿½ï¿½??ï¿½ bp_stability.py                      # Kalman filtering
+??  ?ï¿½ï¿½??ï¿½ mediapipe_face_detector.py           # Face detection
 ??
-?œâ??€ ?“ˆ Results & Documentation
-??  ?œâ??€ results/
-??  ??  ?œâ??€ *_predictions.png                # Prediction scatter plots
-??  ??  ?œâ??€ *_error_distribution.png         # Error histograms
-??  ??  ?”â??€ *_summary_report.txt             # Performance reports
-??  ?œâ??€ PROJECT_FINAL_SUMMARY.md             # Complete project summary
-??  ?œâ??€ PROJECT_COMPLETION_SUMMARY.txt       # Detailed progress log
-??  ?”â??€ README.md                            # This file
+?ï¿½ï¿½??ï¿½ ?ï¿½ï¿½ Results & Documentation
+??  ?ï¿½ï¿½??ï¿½ results/
+??  ??  ?ï¿½ï¿½??ï¿½ *_predictions.png                # Prediction scatter plots
+??  ??  ?ï¿½ï¿½??ï¿½ *_error_distribution.png         # Error histograms
+??  ??  ?ï¿½ï¿½??ï¿½ *_summary_report.txt             # Performance reports
+??  ?ï¿½ï¿½??ï¿½ PROJECT_FINAL_SUMMARY.md             # Complete project summary
+??  ?ï¿½ï¿½??ï¿½ PROJECT_COMPLETION_SUMMARY.txt       # Detailed progress log
+??  ?ï¿½ï¿½??ï¿½ README.md                            # This file
 ??
-?œâ??€ ?› ï¸?Deployment
-??  ?œâ??€ export_onnx.py                       # ONNX conversion
-??  ?”â??€ prepare_onnx_export.py               # Deployment guide
+?ï¿½ï¿½??ï¿½ ?ï¿½ï¿½ï¿½?Deployment
+??  ?ï¿½ï¿½??ï¿½ export_onnx.py                       # ONNX conversion
+??  ?ï¿½ï¿½??ï¿½ prepare_onnx_export.py               # Deployment guide
 ??
-?”â??€ ?“¦ Configuration
-    ?œâ??€ requirements.txt                      # Python dependencies
-    ?œâ??€ .gitignore                           # Git ignore rules
-    ?”â??€ LICENSE.md                           # MIT License
+?ï¿½ï¿½??ï¿½ ?ï¿½ï¿½ Configuration
+    ?ï¿½ï¿½??ï¿½ requirements.txt                      # Python dependencies
+    ?ï¿½ï¿½??ï¿½ .gitignore                           # Git ignore rules
+    ?ï¿½ï¿½??ï¿½ LICENSE.md                           # MIT License
 ```
 
 ---
 
-## ?”¬ Technical Architecture
+## ?ï¿½ï¿½ Technical Architecture
 
 ### Data Processing Pipeline
 
@@ -210,10 +210,10 @@ Input (875, 1) ??Conv1D ??Residual Blocks Ã— 8 ??Dense(256) ??[SBP, DBP]
 **2. Multi-Task Learning**
 ```
 Input (875, 1) ??Shared ResNet Backbone ??Task-Specific Heads
-                                          ?œâ? SBP Head
-                                          ?œâ? DBP Head
-                                          ?œâ? HR Head
-                                          ?”â? SpO2 Head
+                                          ?ï¿½ï¿½? SBP Head
+                                          ?ï¿½ï¿½? DBP Head
+                                          ?ï¿½ï¿½? HR Head
+                                          ?ï¿½ï¿½? SpO2 Head
 - Shared representation learning
 - Weighted loss (BP: 1.0, HR: 0.3, SpO2: 0.3)
 - Parameters: 10M
@@ -231,23 +231,23 @@ Input (875, 1) ??Embedding ??Positional Encoding ??Transformer Encoder Ã— 3
 
 ---
 
-## ?“Š Performance Analysis
+## ?ï¿½ï¿½ Performance Analysis
 
 ### Clinical Validation
 
 ```
 AAMI Standard (Clinical Threshold):
-?œâ? SBP: < 10 mmHg MAE
-?”â? DBP: < 8 mmHg MAE
+?ï¿½ï¿½? SBP: < 10 mmHg MAE
+?ï¿½ï¿½? DBP: < 8 mmHg MAE
 
 Our Results (Transformer):
-?œâ? SBP: 0.84 mmHg (91.6% better)
-?”â? DBP: 0.82 mmHg (89.8% better)
+?ï¿½ï¿½? SBP: 0.84 mmHg (91.6% better)
+?ï¿½ï¿½? DBP: 0.82 mmHg (89.8% better)
 
 Error Distribution:
-?œâ? 95th percentile: < 2.5 mmHg
-?œâ? Standard deviation: ~1.0 mmHg
-?”â? Outliers: < 2% of predictions
+?ï¿½ï¿½? 95th percentile: < 2.5 mmHg
+?ï¿½ï¿½? Standard deviation: ~1.0 mmHg
+?ï¿½ï¿½? Outliers: < 2% of predictions
 ```
 
 ### Model Comparison
@@ -270,16 +270,16 @@ Error Distribution:
 
 ```
 Dataset: UKL rPPG-BP (Preprocessed)
-?œâ? Total Samples: 7,851
-?œâ? Signal Length: 875 samples (7s @ 125 Hz)
-?œâ? Train/Val/Test: 70% / 15% / 15%
-?œâ? SBP Range: 90-180 mmHg
-?”â? DBP Range: 60-120 mmHg
+?ï¿½ï¿½? Total Samples: 7,851
+?ï¿½ï¿½? Signal Length: 875 samples (7s @ 125 Hz)
+?ï¿½ï¿½? Train/Val/Test: 70% / 15% / 15%
+?ï¿½ï¿½? SBP Range: 90-180 mmHg
+?ï¿½ï¿½? DBP Range: 60-120 mmHg
 ```
 
 ---
 
-## ?› ï¸?Advanced Usage
+## ?ï¿½ï¿½ï¿½?Advanced Usage
 
 ### Custom Training Configuration
 
@@ -332,7 +332,7 @@ predictions = session.run(None, {'input': signal})
 
 ---
 
-## ?§ª Testing & Validation
+## ?ï¿½ï¿½ Testing & Validation
 
 ### Real-Time System Tests
 
@@ -370,7 +370,7 @@ print(f"SBP MAE: {mae_sbp:.2f} mmHg, DBP MAE: {mae_dbp:.2f} mmHg")
 
 ---
 
-## ?“š Key Algorithms
+## ?ï¿½ï¿½ Key Algorithms
 
 ### 1. POS Algorithm (Plane-Orthogonal-to-Skin)
 
@@ -455,7 +455,7 @@ def assess_signal_quality(signal, fps=30):
 
 ---
 
-## ?“– Documentation
+## ?ï¿½ï¿½ Documentation
 
 ### Main Documents
 
@@ -494,7 +494,7 @@ def assess_signal_quality(signal, fps=30):
 
 ---
 
-## ?”§ Troubleshooting
+## ?ï¿½ï¿½ Troubleshooting
 
 ### Common Issues
 
@@ -569,7 +569,7 @@ predictions = session.run(None, {'input': batch_signals})
 
 ---
 
-## ?¤ Contributing
+## ?ï¿½ï¿½ Contributing
 
 Contributions are welcome! Please feel free to:
 
@@ -599,7 +599,7 @@ git push origin feature/your-feature-name
 
 ---
 
-## ?“„ License
+## ?ï¿½ï¿½ License
 
 MIT License - see [LICENSE.md](LICENSE.md) for details.
 
@@ -607,7 +607,7 @@ Free to use, modify, and distribute for academic and commercial purposes.
 
 ---
 
-## ?™ Acknowledgments
+## ?ï¿½ï¿½ Acknowledgments
 
 - **Yonsei HCI LAB** - Research environment and support
 - **Schrumpf et al.** - Original paper and baseline implementation
@@ -618,7 +618,7 @@ Free to use, modify, and distribute for academic and commercial purposes.
 
 ---
 
-## ?“ Contact
+## ?ï¿½ï¿½ Contact
 
 **Developer**: Resourceful Hooni  
 **Affiliation**: Yonsei HCI LAB (Intern)  
@@ -627,33 +627,33 @@ Free to use, modify, and distribute for academic and commercial purposes.
 
 For questions, suggestions, or collaboration:
 - Open an issue on GitHub
-- Star â­?the repo if you find it useful!
+- Star ï¿½?the repo if you find it useful!
 
 ---
 
-## ?“Š Project Statistics
+## ?ï¿½ï¿½ Project Statistics
 
 ```
-?“ Total Files: 50+
-?’» Lines of Code: 15,000+
-?“Š Models Trained: 3 architectures
-?¯ Accuracy: 91.6% better than clinical standard
+?ï¿½ï¿½ Total Files: 50+
+?ï¿½ï¿½ Lines of Code: 15,000+
+?ï¿½ï¿½ Models Trained: 3 architectures
+?ï¿½ï¿½ Accuracy: 91.6% better than clinical standard
 ??Inference Speed: 20ms (50 FPS capable)
-?“¦ Model Size: 2.29 MB (ONNX Transformer)
-?† Best MAE: SBP 0.84 mmHg, DBP 0.82 mmHg
+?ï¿½ï¿½ Model Size: 2.29 MB (ONNX Transformer)
+?ï¿½ï¿½ Best MAE: SBP 0.84 mmHg, DBP 0.82 mmHg
 ```
 
 ---
 
 <div align="center">
 
-### ?‰ Project Complete! ?‰
+### ?ï¿½ï¿½ Project Complete! ?ï¿½ï¿½
 
 **"Advancing Non-Invasive Healthcare Through AI"**
 
-Made with ?¤ï¸ at Yonsei HCI LAB | 2026
+Made with ?ï¿½ï¸ at Yonsei HCI LAB | 2026
 
-[â¬?Back to Top](#-non-invasive-blood-pressure-estimation-using-deep-learning)
+[ï¿½?Back to Top](#-non-invasive-blood-pressure-estimation-using-deep-learning)
 
 </div>
 

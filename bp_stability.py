@@ -67,7 +67,7 @@ class BPStabilizer:
     혈압 예측값 안정화
     """
     
-    def __init__(self, window_size: int = 5, outlier_threshold: float = 2.5):
+    def __init__(self, window_size: int = 2, outlier_threshold: float = 4.0):
         """
         Args:
             window_size: 이동 평균 윈도우 크기
@@ -76,9 +76,9 @@ class BPStabilizer:
         self.window_size = window_size
         self.outlier_threshold = outlier_threshold
         
-        # 칼만 필터
-        self.sbp_kalman = KalmanFilter(process_variance=0.01, measurement_variance=5.0)
-        self.dbp_kalman = KalmanFilter(process_variance=0.01, measurement_variance=3.0)
+        # 칼만 필터 (더 responsive하게)
+        self.sbp_kalman = KalmanFilter(process_variance=0.1, measurement_variance=2.0)
+        self.dbp_kalman = KalmanFilter(process_variance=0.1, measurement_variance=1.5)
         
         # 이동 평균용 버퍼
         self.sbp_buffer = deque(maxlen=window_size)
@@ -147,53 +147,51 @@ class BPStabilizer:
         info['sbp_outlier'] = sbp_outlier
         info['dbp_outlier'] = dbp_outlier
         
-        # 이상치면 칼만 필터 예측값만 사용 (측정값 무시)
-        if sbp_outlier:
-            if self.sbp_kalman.estimate is not None:
-                sbp = self.sbp_kalman.estimate
-                info['sbp_corrected'] = True
+        # 이상치도 부분 반영 (완전 무시하지 않음)
+        if sbp_outlier and len(self.sbp_buffer) > 0:
+            # 50% 이전 평균, 50% 새값 혼합
+            prev_avg = np.mean(list(self.sbp_buffer)[-2:]) if len(self.sbp_buffer) >= 2 else list(self.sbp_buffer)[-1]
+            sbp = 0.5 * prev_avg + 0.5 * sbp
+            info['sbp_corrected'] = True
         
-        if dbp_outlier:
-            if self.dbp_kalman.estimate is not None:
-                dbp = self.dbp_kalman.estimate
-                info['dbp_corrected'] = True
+        if dbp_outlier and len(self.dbp_buffer) > 0:
+            # 50% 이전 평균, 50% 새값 혼합
+            prev_avg = np.mean(list(self.dbp_buffer)[-2:]) if len(self.dbp_buffer) >= 2 else list(self.dbp_buffer)[-1]
+            dbp = 0.5 * prev_avg + 0.5 * dbp
+            info['dbp_corrected'] = True
         
         # 2. 범위 체크 및 클리핑
         sbp = np.clip(sbp, 70, 200)
         dbp = np.clip(dbp, 40, 130)
         
-        # 3. 칼만 필터 적용
-        sbp_kalman = self.sbp_kalman.update(sbp)
-        dbp_kalman = self.dbp_kalman.update(dbp)
-        
-        # 4. 버퍼에 추가
-        self.sbp_buffer.append(sbp_kalman)
-        self.dbp_buffer.append(dbp_kalman)
+        # 3. 버퍼에 원본 값 추가 (칼만 없이)
+        self.sbp_buffer.append(sbp)
+        self.dbp_buffer.append(dbp)
         self.quality_buffer.append(quality_score)
         
-        # 5. 품질 기반 가중 평균
-        if len(self.sbp_buffer) >= 3:
-            weights = np.array(list(self.quality_buffer))
-            weights = weights / (np.sum(weights) + 1e-10)
-            
-            sbp_weighted = np.average(list(self.sbp_buffer), weights=weights)
-            dbp_weighted = np.average(list(self.dbp_buffer), weights=weights)
-            
-            info['method'] = 'weighted_average'
+        # 4. 단순 이동 평균 (최근 2개 값만)
+        if len(self.sbp_buffer) >= 2:
+            # 가장 최근 2개 값의 평균
+            sbp_smoothed = np.mean(list(self.sbp_buffer)[-2:])
+            dbp_smoothed = np.mean(list(self.dbp_buffer)[-2:])
+            info['method'] = 'simple_average'
         else:
-            sbp_weighted = sbp_kalman
-            dbp_weighted = dbp_kalman
+            sbp_smoothed = sbp
+            dbp_smoothed = dbp
+            info['method'] = 'raw'
         
-        # 6. 통계 업데이트
+        # 5. 통계 업데이트
         self.update_stats()
         
-        # 7. 생리학적 타당성 검사 (SBP > DBP)
-        if sbp_weighted <= dbp_weighted:
-            # DBP가 SBP보다 크면 안됨
-            sbp_weighted = dbp_weighted + 20
+        # 6. 생리학적 타당성 검사 (SBP > DBP) - 가벼운 보정만
+        if sbp_smoothed <= dbp_smoothed:
+            # DBP가 SBP보다 크면 안됨 - 둘의 평균값으로 약간 보정
+            avg = (sbp_smoothed + dbp_smoothed) / 2
+            sbp_smoothed = avg + 10
+            dbp_smoothed = avg - 10
             info['physiological_correction'] = True
         
-        return sbp_weighted, dbp_weighted, info
+        return sbp_smoothed, dbp_smoothed, info
     
     def get_confidence(self) -> float:
         """
