@@ -12,13 +12,20 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import argparse
 from datetime import datetime
+from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 
 
 def load_model_and_data():
     """Load trained model and test data"""
     print("[*] Loading model and data...")
     
-    model = tf.keras.models.load_model('models/transformer_bp_model.h5')
+    # Load model with custom objects
+    custom_objects = {
+        'MultiHeadAttention': MultiHeadAttention,
+        'EncoderLayer': EncoderLayer,
+        'TransformerEncoder': TransformerEncoder
+    }
+    model = tf.keras.models.load_model('models/transformer_bp_model.h5', custom_objects=custom_objects)
     
     with h5py.File('data/rppg_test.h5', 'r') as f:
         test_x = f['signals'][:]

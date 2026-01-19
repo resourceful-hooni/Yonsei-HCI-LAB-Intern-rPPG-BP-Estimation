@@ -70,6 +70,14 @@ class MultiHeadAttention(layers.Layer):
         
         output = self.dense(concat_attention)
         return output, attention_weights
+    
+    def get_config(self):
+        config = super(MultiHeadAttention, self).get_config()
+        config.update({
+            'd_model': self.d_model,
+            'num_heads': self.num_heads,
+        })
+        return config
 
 
 def scaled_dot_product_attention(q, k, v, mask=None):
@@ -99,8 +107,13 @@ def point_wise_feed_forward_network(d_model, dff):
 class EncoderLayer(layers.Layer):
     """Transformer Encoder Layer"""
     
-    def __init__(self, d_model, num_heads, dff, rate=0.1):
-        super().__init__()
+    def __init__(self, d_model, num_heads, dff, rate=0.1, **kwargs):
+        super().__init__(**kwargs)
+        
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.dff = dff
+        self.rate = rate
         
         self.mha = MultiHeadAttention(d_model, num_heads)
         self.ffn = point_wise_feed_forward_network(d_model, dff)
@@ -121,16 +134,29 @@ class EncoderLayer(layers.Layer):
         out2 = self.layernorm2(out1 + ffn_output)
         
         return out2
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'd_model': self.d_model,
+            'num_heads': self.num_heads,
+            'dff': self.dff,
+            'rate': self.rate,
+        })
+        return config
 
 
 class TransformerEncoder(layers.Layer):
     """Transformer Encoder"""
     
-    def __init__(self, num_layers, d_model, num_heads, dff, rate=0.1):
-        super().__init__()
+    def __init__(self, num_layers, d_model, num_heads, dff, rate=0.1, **kwargs):
+        super().__init__(**kwargs)
         
         self.d_model = d_model
         self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.dff = dff
+        self.rate = rate
         
         self.enc_layers = [
             EncoderLayer(d_model, num_heads, dff, rate)
@@ -144,6 +170,17 @@ class TransformerEncoder(layers.Layer):
             x = self.enc_layers[i](x, training=training)
         
         return x
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'num_layers': self.num_layers,
+            'd_model': self.d_model,
+            'num_heads': self.num_heads,
+            'dff': self.dff,
+            'rate': self.rate,
+        })
+        return config
 
 
 def create_transformer_model(input_shape=(875, 1), d_model=128, num_heads=4, 
