@@ -48,9 +48,6 @@ Based on and extending: "Assessment of non-invasive blood pressure prediction fr
 ---
 
 ## 🚀 Quick Start
----
-
-## 🚀 Quick Start
 
 ### Installation
 
@@ -196,33 +193,81 @@ python deployment/export_onnx.py
 
 ```
 non-invasive-bp-estimation-using-deep-learning/
-├── data/                                # Datasets and metadata (train/val/test splits, source records)
-├── models/                              # Model definitions + trained weights + ONNX exports
-│   ├── define_*.py, slapnicar_model.py  # Baseline CNN/LSTM/ResNet/Slapnicar architectures
-│   ├── multi_task_model.py, transformer_model.py
-│   ├── *.h5                             # Trained weights (resnet_rppg_adapted, multi_task_bp, transformer_bp)
-│   └── onnx/                            # ONNX artifacts for deployment
-├── training/                            # Training, evaluation, visualization
-│   ├── prepare_rppg_dataset.py          # rPPG dataset preprocessing/splitting
-│   ├── domain_adaptation.py             # Phase 3-1 transfer learning (PPG→rPPG)
-│   ├── train_multi_task.py              # Phase 3-2 multi-task training
-│   ├── train_transformer.py             # Phase 4 transformer training
-│   ├── visualize_*.py                   # Plots and reports for each phase
-│   └── mimic/                           # MIMIC/PPG prep and personalization scripts
-├── realtime/                            # Real-time inference stack
-│   ├── integrated_pipeline.py           # End-to-end pipeline (POS + quality + model + Kalman)
-│   ├── camera_rppg_advanced.py/h5.py    # Real-time UIs (native/ONNX options)
-│   ├── pos_algorithm.py                 # POS signal extraction
-│   ├── signal_quality.py                # Detrend, adaptive filtering, quality metrics
-│   ├── bp_stability.py                  # BP smoothing (Kalman + outlier handling)
-│   ├── mediapipe_face_detector.py       # Face detection (MediaPipe + Haar fallback)
-│   └── run_integrated_bp_monitor.py     # CLI entry for real-time monitoring
-├── tests/                               # Test and debug utilities (pipeline, face, POS, compatibility)
-├── deployment/                          # ONNX export and deployment helpers
-├── docs/                                # Project docs and status reports (moved from root)
-├── results/                             # Generated plots/reports
-├── README.md | LICENSE.md | requirements*.txt | .gitignore
-└── misc: compatibility_check.txt, summary_output.txt, env/, venv/
+├── data/                                        # Datasets and metadata
+│   ├── rPPG-BP-UKL_rppg_7s.h5                    # Source rPPG dataset (7,851 samples)
+│   ├── rppg_train.h5 | rppg_val.h5 | rppg_test.h5 # Train/val/test splits
+│   └── MIMIC-III_ppg_dataset_records.txt         # MIMIC record list
+├── models/                                      # Architectures + weights + ONNX
+│   ├── define_AlexNet_1D.py                      # 1D AlexNet variant
+│   ├── define_LSTM.py                            # BiLSTM baseline
+│   ├── define_ResNet_1D.py                       # 1D ResNet backbone
+│   ├── slapnicar_model.py                        # Slapnicar hybrid model
+│   ├── multi_task_model.py                       # Multi-task head (BP/HR/SpO2)
+│   ├── transformer_model.py                      # Transformer blocks (MHA/Encoder)
+│   ├── resnet_rppg_adapted.h5                    # Domain-adapted ResNet weights
+│   ├── multi_task_bp_model.h5                    # Multi-task trained weights
+│   ├── transformer_bp_model.h5                   # Transformer trained weights
+│   └── onnx/                                     # Exported ONNX artifacts
+├── training/                                    # Training, evaluation, visualization
+│   ├── prepare_rppg_dataset.py                   # rPPG preprocessing + split + scalers
+│   ├── domain_adaptation.py                      # Phase 3-1 transfer (PPG→rPPG)
+│   ├── train_multi_task.py                       # Phase 3-2 multi-task training
+│   ├── train_transformer.py                      # Phase 4 transformer training
+│   ├── visualize_domain_adaptation.py            # Plots for Phase 3-1
+│   ├── visualize_multi_task.py                   # Plots for Phase 3-2
+│   ├── visualize_transformer.py                  # Plots for Phase 4
+│   └── mimic/                                    # MIMIC/PPG prep & personalization
+│       ├── download_mimic_iii_records.py         # Download helper
+│       ├── h5_to_tfrecord.py                     # Convert to TFRecord
+│       ├── prepare_MIMIC_dataset.py              # MIMIC preprocessing
+│       ├── ppg_personalization_mimic_iii.py      # Personalization script
+│       ├── ppg_training_mimic_iii.py             # PPG training
+│       └── retrain_rppg_personalization.py       # Retrain with personalization
+├── realtime/                                    # Real-time inference stack
+│   ├── integrated_pipeline.py                    # Full pipeline (POS → quality → model → Kalman)
+│   ├── camera_rppg_advanced.py                   # Interactive UI (TensorFlow)
+│   ├── camera_rppg_h5.py                         # H5/ONNX runtime variant
+│   ├── pos_algorithm.py                          # POS signal extraction
+│   ├── signal_quality.py                         # Detrend, adaptive filter, quality metrics
+│   ├── bp_stability.py                           # Kalman + outlier smoothing
+│   ├── mediapipe_face_detector.py                # MediaPipe/Haar face detector
+│   ├── run_integrated_bp_monitor.py              # CLI entry for monitoring
+│   └── run_phase4_final.py                       # Phase 4 finalize-and-commit helper
+├── deployment/                                  # Deployment helpers
+│   ├── export_onnx.py                            # Export Keras models to ONNX
+│   └── prepare_onnx_export.py                    # ONNX export guide/automation
+├── tests/                                       # Test and debug utilities
+│   ├── camera_rppg_test.py                       # Camera capture smoke test
+│   ├── check_status.py                           # Pipeline status check
+│   ├── compare_face_detectors.py                 # MediaPipe vs Haar comparison
+│   ├── debug_face_detection.py                   # Face detector debug
+│   ├── debug_realtime_test.py                    # Real-time pipeline debug logger
+│   ├── simple_test_example.py                    # Minimal test harness
+│   ├── test_compatibility.py                     # Env/model compatibility test
+│   ├── test_e2e_pipeline.py                      # End-to-end pipeline validation
+│   ├── test_mediapipe.py                         # MediaPipe import/init test
+│   ├── test_model.py                             # Model load/inference test
+│   ├── test_phase2_step3.py                      # POS + MediaPipe module test
+│   ├── test_pos_only.py                          # POS-only signal extraction test
+│   ├── test_quick.py                             # Quick pipeline smoke
+│   ├── test_real_time_models.py                  # Model variants real-time test
+│   └── validate_system.py                        # System-level validation script
+├── docs/                                        # Documentation and reports
+│   ├── CAMERA_IMPLEMENTATION_STATUS.md
+│   ├── COMPATIBILITY_REPORT.md
+│   ├── COMPREHENSIVE_SOLUTION_GUIDE.md
+│   ├── DUPLICATE_CHECK.md
+│   ├── PHASE3_ACTION_PLAN.md
+│   ├── PROJECT_FINAL_SUMMARY.md
+│   └── TEST_GUIDE.md
+├── results/                                     # Generated plots/reports
+├── compatibility_check.txt                      # Compat scan output
+├── mediapipe_test_output.txt                     # MediaPipe test log
+├── summary_output.txt                            # Summary log
+├── fix_compatibility.ps1                         # PS helper for compat setup
+├── requirements.txt | requirements_compatible.txt # Dependency pins
+├── LICENSE.md | README.md | .gitignore
+└── env/ | venv/                                  # Virtual environments (local)
 ```
 
 ---
