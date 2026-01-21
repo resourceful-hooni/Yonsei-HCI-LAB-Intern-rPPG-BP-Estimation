@@ -253,20 +253,23 @@ non-invasive-bp-estimation-using-deep-learning/
 │   ├── test_real_time_models.py                  # Model variants real-time test
 │   └── validate_system.py                        # System-level validation script
 ├── docs/                                        # Documentation and reports
-│   ├── CAMERA_IMPLEMENTATION_STATUS.md
-│   ├── COMPATIBILITY_REPORT.md
-│   ├── COMPREHENSIVE_SOLUTION_GUIDE.md
-│   ├── DUPLICATE_CHECK.md
-│   ├── PHASE3_ACTION_PLAN.md
-│   ├── PROJECT_FINAL_SUMMARY.md
-│   └── TEST_GUIDE.md
+│   ├── CAMERA_IMPLEMENTATION_STATUS.md          # Camera implementation notes
+│   ├── COMPATIBILITY_REPORT.md                  # Compatibility findings
+│   ├── COMPREHENSIVE_SOLUTION_GUIDE.md          # Full solution guide
+│   ├── DUPLICATE_CHECK.md                       # Duplicate detection log
+│   ├── PHASE3_ACTION_PLAN.md                    # Phase 3 plan
+│   ├── PHASE4_PROGRESS.txt                      # Phase 4 progress log
+│   ├── PROJECT_FINAL_SUMMARY.md                 # Final summary
+│   ├── PROJECT_COMPLETION_SUMMARY.txt           # Completion log
+│   ├── compatibility_check.txt                  # Env compatibility scan
+│   ├── mediapipe_test_output.txt                # MediaPipe test output
+│   ├── summary_output.txt                       # Aggregated summary log
+│   └── TEST_GUIDE.md                            # Test guide
 ├── results/                                     # Generated plots/reports
-├── compatibility_check.txt                      # Compat scan output
-├── mediapipe_test_output.txt                     # MediaPipe test log
-├── summary_output.txt                            # Summary log
 ├── fix_compatibility.ps1                         # PS helper for compat setup
 ├── requirements.txt | requirements_compatible.txt # Dependency pins
 ├── LICENSE.md | README.md | .gitignore
+├── PROJECT_COMPLETION_SUMMARY.py                 # Script to generate summary
 └── env/ | venv/                                  # Virtual environments (local)
 ```
 
