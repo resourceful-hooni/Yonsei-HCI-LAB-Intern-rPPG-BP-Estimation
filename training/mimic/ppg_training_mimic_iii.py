@@ -13,12 +13,12 @@ A checkpoint callback is used to store the best network weights in terms of vali
 used to perform predictions on the test set. Test results are stored in a csv file for later evaluation.
 
 References
-[1] A. Krizhevsky, I. Sutskever, und G. E. Hinton, „ImageNet classification with deep convolutional neural networks“,
-    Commun. ACM, Bd. 60, Nr. 6, S. 84–90, Mai 2017, doi: 10.1145/3065386.
-[2] K. He, X. Zhang, S. Ren, und J. Sun, „Deep Residual Learning for Image Recognition“, in 2016 IEEE Conference on
-    Computer Vision and Pattern Recognition (CVPR), Las Vegas, NV, USA, Juni 2016, S. 770–778. doi: 10.1109/CVPR.2016.90.
-[3] G. Slapničar, N. Mlakar, und M. Luštrek, „Blood Pressure Estimation from Photoplethysmogram Using a Spectro-Temporal
-    Deep Neural Network“, Sensors, Bd. 19, Nr. 15, S. 3420, Aug. 2019, doi: 10.3390/s19153420.
+[1] A. Krizhevsky, I. Sutskever, und G. E. Hinton, ?�ImageNet classification with deep convolutional neural networks??
+    Commun. ACM, Bd. 60, Nr. 6, S. 84??0, Mai 2017, doi: 10.1145/3065386.
+[2] K. He, X. Zhang, S. Ren, und J. Sun, ?�Deep Residual Learning for Image Recognition?? in 2016 IEEE Conference on
+    Computer Vision and Pattern Recognition (CVPR), Las Vegas, NV, USA, Juni 2016, S. 770??78. doi: 10.1109/CVPR.2016.90.
+[3] G. Slapničar, N. Mlakar, und M. Luštrek, ?�Blood Pressure Estimation from Photoplethysmogram Using a Spectro-Temporal
+    Deep Neural Network?? Sensors, Bd. 19, Nr. 15, S. 3420, Aug. 2019, doi: 10.3390/s19153420.
 
 File: prepare_MIMIC_dataset.py
 Author: Dr.-Ing. Fabian Schrumpf

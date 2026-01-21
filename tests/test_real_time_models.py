@@ -17,8 +17,8 @@ from scipy.signal import butter, filtfilt, detrend
 from scipy.signal import find_peaks, welch
 
 # Import custom modules
-from pos_algorithm import POSExtractor
-from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
+from realtime.pos_algorithm import POSExtractor
+from models.transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 
 class RealtimeBPPredictor:
     def __init__(self, model_type='transformer'):

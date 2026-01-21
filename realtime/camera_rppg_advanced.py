@@ -24,11 +24,18 @@ import re
 from collections import deque
 from typing import Optional, Tuple
 
-from pos_algorithm import POSExtractor
-from mediapipe_face_detector import MediaPipeFaceDetector, HaarCascadeFaceDetector
-from signal_quality import SignalQualityAssessor, ROIStabilizer
-from bp_stability import BPStabilizer
-from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    ONNX_AVAILABLE = False
+    print("⚠️ onnxruntime 미설치: ONNX 모델 사용 불가")
+
+from .pos_algorithm import POSExtractor
+from .mediapipe_face_detector import MediaPipeFaceDetector, HaarCascadeFaceDetector
+from .signal_quality import SignalQualityAssessor, ROIStabilizer
+from .bp_stability import BPStabilizer
+from models.transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 
 
 class AdvancedRPPGExtractor:

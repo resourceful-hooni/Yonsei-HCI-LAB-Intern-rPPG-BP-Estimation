@@ -263,6 +263,6 @@ class POSExtractor:
 if __name__ == "__main__":
     print("POS 알고리즘 모듈 로드됨")
     print("사용 예시:")
-    print("  from pos_algorithm import POSExtractor")
+    print("  from realtime.pos_algorithm import POSExtractor")
     print("  extractor = POSExtractor(fs=30, window_size=1.6)")
     print("  pulse, hr = extractor.extract(frames, roi_func)")

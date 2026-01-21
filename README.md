@@ -82,37 +82,113 @@ pip install -r requirements.txt
 ### Real-Time BP Monitoring
 
 ```bash
-# Run with webcam (recommended settings)
-python camera_rppg_advanced.py --camera 0 --duration 7 --pos
+# Activate virtual environment first
+.\env\Scripts\Activate.ps1  # Windows PowerShell
+source env/bin/activate     # Linux/Mac
+
+# Run real-time monitor (Transformer, camera 1)
+python -m realtime.run_integrated_bp_monitor --model data/transformer_bp_model.h5 --camera 1
+
+# Alternate UI with advanced overlays
+python -m realtime.camera_rppg_advanced --model data/transformer_bp_model.h5 --camera 1 --duration 7 --pos
+
+# External camera example (camera index 0 or 1 as needed)
+python -m realtime.run_integrated_bp_monitor --model data/transformer_bp_model.h5 --camera 0
 
 # Custom configuration
-python camera_rppg_advanced.py --camera 1 --duration 5 --pos --no-mediapipe
+python -m realtime.camera_rppg_advanced --model data/transformer_bp_model.h5 --camera 1 --duration 5 --pos --no-mediapipe
+
+# Quick command (Transformer + Camera 1)
+.\env\Scripts\Activate.ps1; python -m realtime.run_integrated_bp_monitor --model data/transformer_bp_model.h5 --camera 1
 
 # Available options:
-#   --camera INT       Camera index (default: 0)
+#   --model PATH       Model file path (default: data/resnet_ppg_nonmixed.h5)
+#                      Recommended: models/transformer_bp_model.h5
+#   --camera INT       Camera index (default: 0, use 1 for external camera)
 #   --duration INT     Signal collection time in seconds (default: 7)
-#   --pos             Enable POS algorithm (recommended)
-#   --no-mediapipe    Disable MediaPipe face detection
+#   --pos             Enable POS algorithm (recommended, default: True)
+#   --no-mediapipe    Disable MediaPipe face detection (use Haar Cascade)
 ```
 
-### Model Training
+**Real-Time Output:**
+- **Blood Pressure (SBP/DBP)**: Predicted by deep learning model (Transformer or ResNet)
+- **Heart Rate (HR)**: Extracted from pulse signal via FFT analysis (not from model)
+- **Signal Quality**: SNR, peak regularity, HR band power ratio
+- **Confidence Score**: BP stabilization algorithm reliability indicator (0.0~1.0)
+
+#### 🎯 Confidence Score Algorithm
+
+The confidence score indicates the reliability of BP predictions using a multi-stage stabilization pipeline:
+
+**Stage 1: Signal Quality Assessment**
+- **SNR (Signal-to-Noise Ratio)**: Measures pulse signal clarity (> 10 dB = good)
+- **Peak Regularity**: Evaluates consistency of pulse peaks (0.7~1.0 = stable)
+- **HR Band Power**: Checks energy concentration in heart rate frequency band
+
+**Stage 2: Outlier Detection (Z-Score)**
+```python
+z_score = |predicted_value - moving_average| / std_deviation
+is_outlier = z_score > 4.0  # Statistical threshold
+```
+- Detects abnormal BP values using rolling statistics
+- Outliers are partially blended (50% previous avg + 50% new value)
+
+**Stage 3: Kalman Filter Smoothing**
+```python
+# Kalman Filter Equations:
+Prediction: x̂⁻ = x̂ₖ₋₁
+Prediction Error: P⁻ = Pₖ₋₁ + Q  (Q = process variance)
+
+# Update:
+Kalman Gain: K = P⁻ / (P⁻ + R)  (R = measurement variance)
+Estimate: x̂ₖ = x̂⁻ + K(measurement - x̂⁻)
+Error: Pₖ = (1 - K)P⁻
+```
+- **Process Variance (Q)**: 0.1 (moderate responsiveness)
+- **Measurement Variance (R)**: 2.0 (SBP), 1.5 (DBP)
+- Higher R = more smoothing, less reactive to noise
+
+**Stage 4: Simple Moving Average**
+- Uses most recent 2-5 measurements
+- Reduces high-frequency noise while maintaining responsiveness
+
+**Confidence Calculation:**
+```python
+confidence = 0.4 × signal_quality + 0.3 × (1 - outlier_ratio) + 0.3 × buffer_stability
+```
+- **High (0.8~1.0)**: Stable, reliable measurements
+- **Medium (0.5~0.8)**: Acceptable with minor fluctuations
+- **Low (< 0.5)**: Take multiple measurements and use average
+
+**Physiological Constraints:**
+- SBP range: 70~200 mmHg
+- DBP range: 40~130 mmHg
+- SBP must be > DBP (automatic correction if violated)
+
+---
 
 ```bash
 # 1. Prepare dataset
-python prepare_rppg_dataset.py
+python training/prepare_rppg_dataset.py
 
 # 2. Train Domain Adaptation model
-python domain_adaptation.py
+python training/domain_adaptation.py
 
 # 3. Train Multi-Task Learning model
-python train_multi_task.py --epochs 20 --batch-size 32
+python training/train_multi_task.py --epochs 20 --batch-size 32
 
 # 4. Train Transformer model
-python train_transformer.py --epochs 25 --batch-size 32
+python training/train_transformer.py --epochs 25 --batch-size 32
 
 # 5. Export to ONNX
-python export_onnx.py
+python deployment/export_onnx.py
 ```
+
+## ⚠️ Current Issues (to fix next)
+
+- Live BP stays near the label mean (~143/66) because the model outputs ~0 in normalized space on webcam signals; likely caused by input distribution mismatch and low SNR. Need to align preprocessing or improve signal quality before trusting live BP.
+- Training preprocessing (dataset z-score only) differs from realtime preprocessing (detrend + adaptive filter + smoothing + z-score). Align both pipelines or fine-tune the model with the realtime preprocessing path.
+- File encoding is corrupted in [tests/validate_system.py](tests/validate_system.py); clean the text before release.
 
 ---
 
@@ -120,63 +196,33 @@ python export_onnx.py
 
 ```
 non-invasive-bp-estimation-using-deep-learning/
-│
-├── 📦 Data & Models
-│   ├── data/
-│  │   ├── rPPG-BP-UKL_rppg_7s.h5          # Preprocessed dataset (7,851 samples)
-│  │   ├── rppg_train.h5                    # Training set (70%)
-│  │   ├── rppg_val.h5                      # Validation set (15%)
-│  │   ├── rppg_test.h5                     # Test set (15%)
-│  │
-│   ├── models/
-│       ├── resnet_rppg_adapted.h5           # Domain Adaptation (62.1 MB)
-│       ├── multi_task_bp_model.h5           # Multi-Task (9.7 MB)
-│       ├── transformer_bp_model.h5          # Transformer (7.7 MB)
-│       ├── onnx/
-│          ├── multi_task.onnx              # MTL ONNX (3.17 MB)
-│          ├── transformer.onnx             # Transformer ONNX (2.29 MB)
-│
-├── 🧠 Model Architectures
-│   ├── models/
-│  │   ├── define_ResNet_1D.py              # ResNet for 1D signals
-│  │   ├── define_LSTM.py                   # LSTM implementation
-│  │   ├── slapnicar_model.py               # Slapnicar architecture
-│   ├── multi_task_model.py                  # Multi-Task Learning model
-│   ├── transformer_model.py                 # Transformer with Multi-Head Attention
-│
-├── 📊 Training & Evaluation
-│   ├── prepare_rppg_dataset.py              # Data preprocessing pipeline
-│   ├── domain_adaptation.py                 # Phase 3-1: Transfer learning
-│   ├── train_multi_task.py                  # Phase 3-2: Multi-task training
-│   ├── train_transformer.py                 # Phase 4: Transformer training
-│   ├── visualize_domain_adaptation.py       # Phase 3-1 visualization
-│   ├── visualize_multi_task.py              # Phase 3-2 visualization
-│   ├── visualize_transformer.py             # Phase 4 visualization
-│
-├── ⚡ Real-Time System
-│   ├── camera_rppg_advanced.py              # Main real-time application
-│   ├── pos_algorithm.py                     # POS signal extraction
-│   ├── signal_quality.py                    # Quality assessment
-│   ├── bp_stability.py                      # Kalman filtering
-│   ├── mediapipe_face_detector.py           # Face detection
-│
-├── 📈 Results & Documentation
-│   ├── results/
-│  │   ├── *_predictions.png                # Prediction scatter plots
-│  │   ├── *_error_distribution.png         # Error histograms
-│  │   ├── *_summary_report.txt             # Performance reports
-│   ├── PROJECT_FINAL_SUMMARY.md             # Complete project summary
-│   ├── PROJECT_COMPLETION_SUMMARY.txt       # Detailed progress log
-│   ├── README.md                            # This file
-│
-├── 🚀 Deployment
-│   ├── export_onnx.py                       # ONNX conversion
-│   ├── prepare_onnx_export.py               # Deployment guide
-│
-└── ⚙️ Configuration
-    ├── requirements.txt                      # Python dependencies
-    ├── .gitignore                           # Git ignore rules
-    ├── LICENSE.md                           # MIT License
+├── data/                                # Datasets and metadata (train/val/test splits, source records)
+├── models/                              # Model definitions + trained weights + ONNX exports
+│   ├── define_*.py, slapnicar_model.py  # Baseline CNN/LSTM/ResNet/Slapnicar architectures
+│   ├── multi_task_model.py, transformer_model.py
+│   ├── *.h5                             # Trained weights (resnet_rppg_adapted, multi_task_bp, transformer_bp)
+│   └── onnx/                            # ONNX artifacts for deployment
+├── training/                            # Training, evaluation, visualization
+│   ├── prepare_rppg_dataset.py          # rPPG dataset preprocessing/splitting
+│   ├── domain_adaptation.py             # Phase 3-1 transfer learning (PPG→rPPG)
+│   ├── train_multi_task.py              # Phase 3-2 multi-task training
+│   ├── train_transformer.py             # Phase 4 transformer training
+│   ├── visualize_*.py                   # Plots and reports for each phase
+│   └── mimic/                           # MIMIC/PPG prep and personalization scripts
+├── realtime/                            # Real-time inference stack
+│   ├── integrated_pipeline.py           # End-to-end pipeline (POS + quality + model + Kalman)
+│   ├── camera_rppg_advanced.py/h5.py    # Real-time UIs (native/ONNX options)
+│   ├── pos_algorithm.py                 # POS signal extraction
+│   ├── signal_quality.py                # Detrend, adaptive filtering, quality metrics
+│   ├── bp_stability.py                  # BP smoothing (Kalman + outlier handling)
+│   ├── mediapipe_face_detector.py       # Face detection (MediaPipe + Haar fallback)
+│   └── run_integrated_bp_monitor.py     # CLI entry for real-time monitoring
+├── tests/                               # Test and debug utilities (pipeline, face, POS, compatibility)
+├── deployment/                          # ONNX export and deployment helpers
+├── docs/                                # Project docs and status reports (moved from root)
+├── results/                             # Generated plots/reports
+├── README.md | LICENSE.md | requirements*.txt | .gitignore
+└── misc: compatibility_check.txt, summary_output.txt, env/, venv/
 ```
 
 ---
@@ -611,6 +657,47 @@ model = tf.keras.models.load_model('transformer_bp_model.h5', custom_objects=cus
 
 ---
 
+### 🔍 Model Output Details
+
+#### Blood Pressure (BP) Prediction
+**Source**: Deep learning models (Transformer/ResNet)  
+**Outputs**: SBP (Systolic), DBP (Diastolic) in mmHg  
+**Method**:
+1. rPPG signal (875 samples, 7s @ 125Hz) → Model input
+2. Model inference → Normalized predictions
+3. Inverse transform with training statistics → mmHg values
+
+#### Heart Rate (HR) Estimation
+**Source**: POS algorithm FFT analysis (NOT from deep learning model)  
+**Output**: HR in beats per minute (bpm)  
+**Method**:
+1. RGB video → POS algorithm → Pulse signal
+2. FFT on pulse signal → Frequency domain analysis
+3. Peak detection in HR frequency band (0.67-3.0 Hz = 40-180 bpm)
+4. Dominant frequency × 60 → HR (bpm)
+
+**Code reference** (`pos_algorithm.py`):
+```python
+def estimate_heart_rate(pulse_signal, fs=30):
+    # FFT to frequency domain
+    fft_vals = np.fft.fft(pulse_signal)
+    freqs = np.fft.fftfreq(len(pulse_signal), 1/fs)
+    
+    # Find peak in HR band (40-180 bpm)
+    hr_mask = (freqs >= 0.67) & (freqs <= 3.0)
+    peak_freq = freqs[hr_mask][np.argmax(np.abs(fft_vals[hr_mask]))]
+    hr = peak_freq * 60  # Convert Hz to bpm
+    
+    return hr
+```
+
+#### SpO2 (Oxygen Saturation) - Not Implemented
+**Status**: ❌ Not available  
+**Reason**: Training dataset (rPPG-BP-UKL) only contains BP labels, no SpO2 data  
+**Future Work**: Requires dataset with SpO2 labels (e.g., MIMIC-III with pulse oximetry data)
+
+---
+
 ## 📈 Performance Analysis
 
 ### Clinical Validation
@@ -645,6 +732,17 @@ Error Distribution:
 | Inference (CPU) | ~50ms | ~30ms | **~20ms** |
 | Training Time | ~3 hours | ~1.5 hours | **~2 hours** |
 | Best Epoch | 7/50 | 15/20 | **4/25** |
+| **Real-Time Use** | ✅ Available | ⚠️ Architecture Only | ✅ **Recommended** |
+
+**Note on Model Availability:**
+- ✅ **ResNet** (`resnet_ppg_nonmixed.h5`): Fully trained, default for real-time system
+- ✅ **Transformer** (`transformer_bp_model.h5`): Fully trained, best accuracy and efficiency (recommended with `--model transformer`)
+- ⚠️ **Multi-Task**: Architecture defined in code but not trained (requires HR/SpO2 labels unavailable in rPPG-BP-UKL dataset)
+
+**Important Implementation Notes:**
+- 🔹 **Blood Pressure**: Predicted by deep learning models (ResNet or Transformer)
+- 🔹 **Heart Rate**: Extracted via FFT analysis from POS algorithm, NOT from the BP model
+- 🔹 **SpO2**: Not implemented (training dataset only contains BP labels, no oxygen saturation data)
 
 ### Dataset Statistics
 

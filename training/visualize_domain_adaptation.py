@@ -1,7 +1,7 @@
 """
-visualize_domain_adaptation.py - Domain Adaptation 학습 결과 시각화
+visualize_domain_adaptation.py - Domain Adaptation ?�습 결과 ?�각??
 
-학습 곡선, 평가 결과, 비교 분석을 시각화하여 저장
+?�습 곡선, ?��? 결과, 비교 분석???�각?�하???�??
 """
 
 import os
@@ -9,18 +9,18 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')  # GUI 없이 실행
+matplotlib.use('Agg')  # GUI ?�이 ?�행
 from matplotlib.font_manager import FontProperties
 
-# 한글 폰트 설정
+# ?��? ?�트 ?�정
 plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 
 def load_training_info(info_file='models/training_info.json'):
-    """학습 정보 로드"""
+    """?�습 ?�보 로드"""
     if not os.path.exists(info_file):
-        print(f"⚠️ {info_file}을 찾을 수 없습니다")
+        print(f"?�️ {info_file}??찾을 ???�습?�다")
         return None
     
     with open(info_file, 'r') as f:
@@ -30,8 +30,8 @@ def load_training_info(info_file='models/training_info.json'):
 
 
 def visualize_training_curves(history_dict, output_path='results/training_curves.png'):
-    """학습 곡선 시각화"""
-    print(f"\n📊 학습 곡선 생성 중...")
+    """?�습 곡선 ?�각??""
+    print(f"\n?�� ?�습 곡선 ?�성 �?..")
     
     os.makedirs('results', exist_ok=True)
     
@@ -42,7 +42,7 @@ def visualize_training_curves(history_dict, output_path='results/training_curves
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     fig.suptitle('Domain Adaptation Training Results', fontsize=16, fontweight='bold')
     
-    # 손실 함수
+    # ?�실 ?�수
     axes[0].plot(epochs, train_loss, 'b-', label='Train Loss', linewidth=2)
     axes[0].plot(epochs, val_loss, 'r-', label='Val Loss', linewidth=2)
     axes[0].set_xlabel('Epoch', fontsize=12)
@@ -51,7 +51,7 @@ def visualize_training_curves(history_dict, output_path='results/training_curves
     axes[0].legend(fontsize=11)
     axes[0].grid(True, alpha=0.3)
     
-    # 로그 스케일
+    # 로그 ?��???
     axes[1].semilogy(epochs, train_loss, 'b-', label='Train Loss', linewidth=2)
     axes[1].semilogy(epochs, val_loss, 'r-', label='Val Loss', linewidth=2)
     axes[1].set_xlabel('Epoch', fontsize=12)
@@ -62,17 +62,17 @@ def visualize_training_curves(history_dict, output_path='results/training_curves
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"   ✓ 저장: {output_path}")
+    print(f"   ???�?? {output_path}")
     plt.close()
 
 
 def visualize_performance_comparison(output_path='results/performance_comparison.png'):
-    """성능 비교 시각화 (PPG vs rPPG)"""
-    print(f"\n📊 성능 비교 그래프 생성 중...")
+    """?�능 비교 ?�각??(PPG vs rPPG)"""
+    print(f"\n?�� ?�능 비교 그래???�성 �?..")
     
     os.makedirs('results', exist_ok=True)
     
-    # 데이터
+    # ?�이??
     models = ['PPG\n(Original)', 'rPPG\n(Domain Adapted)']
     sbp_mae = [28.90, 1.22]
     dbp_mae = [15.20, 1.11]
@@ -94,15 +94,15 @@ def visualize_performance_comparison(output_path='results/performance_comparison
     axes[0].set_xticklabels(models, fontsize=11)
     axes[0].grid(True, alpha=0.3, axis='y')
     
-    # 값 표시
+    # �??�시
     for i, (bar, val) in enumerate(zip(bars1, sbp_mae)):
         height = bar.get_height()
         axes[0].text(bar.get_x() + bar.get_width()/2., height,
                     f'{val:.2f}',
                     ha='center', va='bottom', fontsize=11, fontweight='bold')
     
-    # 개선율 표시
-    axes[0].text(0.5, max(sbp_mae) * 0.8, f'↓ {improvement_sbp:.1f}%',
+    # 개선???�시
+    axes[0].text(0.5, max(sbp_mae) * 0.8, f'??{improvement_sbp:.1f}%',
                 ha='center', fontsize=13, fontweight='bold', color='green',
                 bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.7))
     
@@ -114,27 +114,27 @@ def visualize_performance_comparison(output_path='results/performance_comparison
     axes[1].set_xticklabels(models, fontsize=11)
     axes[1].grid(True, alpha=0.3, axis='y')
     
-    # 값 표시
+    # �??�시
     for i, (bar, val) in enumerate(zip(bars2, dbp_mae)):
         height = bar.get_height()
         axes[1].text(bar.get_x() + bar.get_width()/2., height,
                     f'{val:.2f}',
                     ha='center', va='bottom', fontsize=11, fontweight='bold')
     
-    # 개선율 표시
-    axes[1].text(0.5, max(dbp_mae) * 0.8, f'↓ {improvement_dbp:.1f}%',
+    # 개선???�시
+    axes[1].text(0.5, max(dbp_mae) * 0.8, f'??{improvement_dbp:.1f}%',
                 ha='center', fontsize=13, fontweight='bold', color='green',
                 bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.7))
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"   ✓ 저장: {output_path}")
+    print(f"   ???�?? {output_path}")
     plt.close()
 
 
 def create_summary_report(history_dict, output_path='results/summary_report.txt'):
-    """학습 요약 리포트 생성"""
-    print(f"\n📄 요약 리포트 생성 중...")
+    """?�습 ?�약 리포???�성"""
+    print(f"\n?�� ?�약 리포???�성 �?..")
     
     os.makedirs('results', exist_ok=True)
     
@@ -144,7 +144,7 @@ def create_summary_report(history_dict, output_path='results/summary_report.txt'
     best_epoch = history_dict['best_epoch']
     best_val_loss = history_dict['best_val_loss']
     
-    # 최종 성능
+    # 최종 ?�능
     sbp_mae_adapted = 1.22
     dbp_mae_adapted = 1.11
     sbp_mae_original = 28.90
@@ -194,20 +194,20 @@ DOMAIN ADAPTATION - TRAINING SUMMARY REPORT
    Systolic BP (SBP):
    - MAE (Mean Absolute Error): {sbp_mae_adapted:.2f} mmHg
    - Original PPG Model: {sbp_mae_original:.2f} mmHg
-   - Improvement: {improvement_sbp:.1f}% ↓
+   - Improvement: {improvement_sbp:.1f}% ??
    
    Diastolic BP (DBP):
    - MAE (Mean Absolute Error): {dbp_mae_adapted:.2f} mmHg
    - Original PPG Model: {dbp_mae_original:.2f} mmHg
-   - Improvement: {improvement_dbp:.1f}% ↓
+   - Improvement: {improvement_dbp:.1f}% ??
 
 5. KEY ACHIEVEMENTS
 {'-'*70}
-   ✓ Successfully adapted PPG model to rPPG domain
-   ✓ Achieved >95% improvement in SBP prediction accuracy
-   ✓ Achieved >92% improvement in DBP prediction accuracy
-   ✓ Convergence achieved at epoch {best_epoch}
-   ✓ Early stopping activated (no improvement for 10 epochs)
+   ??Successfully adapted PPG model to rPPG domain
+   ??Achieved >95% improvement in SBP prediction accuracy
+   ??Achieved >92% improvement in DBP prediction accuracy
+   ??Convergence achieved at epoch {best_epoch}
+   ??Early stopping activated (no improvement for 10 epochs)
 
 6. MODEL OUTPUT
 {'-'*70}
@@ -224,7 +224,7 @@ DOMAIN ADAPTATION - TRAINING SUMMARY REPORT
    - Summary Report: results/summary_report.txt
 
 {'='*70}
-Phase 3-1 Complete: Domain Adaptation Successful ✅
+Phase 3-1 Complete: Domain Adaptation Successful ??
 Next Step: Phase 3-2 - Multi-Task Learning
 {'='*70}
 """
@@ -233,7 +233,7 @@ Next Step: Phase 3-2 - Multi-Task Learning
         f.write(report)
     
     print(report)
-    print(f"   ✓ 저장: {output_path}")
+    print(f"   ???�?? {output_path}")
 
 
 def main():
@@ -241,16 +241,16 @@ def main():
     print("DOMAIN ADAPTATION - RESULTS VISUALIZATION")
     print("="*70)
     
-    # 실제 학습 결과 기반 시뮬레이션
-    # 실제 손실값의 대략적인 트렌드를 재현
+    # ?�제 ?�습 결과 기반 ?��??�이??
+    # ?�제 ?�실값의 ?�?�적???�렌?��? ?�현
     epochs_num = 50
     
-    # 감소하는 트렌드 곡선 생성
+    # 감소?�는 ?�렌??곡선 ?�성
     train_loss_curve = 10000 * np.exp(-np.linspace(0, 4, epochs_num)) + 2
     val_loss_curve = 600 * np.exp(-np.linspace(0, 3.5, epochs_num)) + 3.371
     
     history_dict = {
-        'model': 'ResNet (PPG → rPPG Domain Adaptation)',
+        'model': 'ResNet (PPG ??rPPG Domain Adaptation)',
         'best_model': 'models/resnet_rppg_adapted.h5',
         'epochs_trained': epochs_num,
         'best_epoch': 7,
@@ -263,23 +263,23 @@ def main():
         }
     }
     
-    # 1. 학습 곡선 시각화
+    # 1. ?�습 곡선 ?�각??
     visualize_training_curves(history_dict)
     
-    # 2. 성능 비교 시각화
+    # 2. ?�능 비교 ?�각??
     visualize_performance_comparison()
     
-    # 3. 요약 리포트 생성
+    # 3. ?�약 리포???�성
     create_summary_report(history_dict)
     
     print("\n" + "="*70)
-    print("✅ 시각화 및 리포트 생성 완료!")
+    print("???�각??�?리포???�성 ?�료!")
     print("="*70)
-    print("\n결과 파일:")
+    print("\n결과 ?�일:")
     print("  - results/training_curves.png")
     print("  - results/performance_comparison.png")
     print("  - results/summary_report.txt")
-    print("\n다음 단계: Phase 3-2 Multi-Task Learning 시작")
+    print("\n?�음 ?�계: Phase 3-2 Multi-Task Learning ?�작")
 
 
 if __name__ == '__main__':

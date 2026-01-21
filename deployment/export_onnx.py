@@ -10,7 +10,7 @@ import tensorflow as tf
 import tf2onnx
 import onnx
 import numpy as np
-from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
+from models.transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 
 def export_model_to_onnx(model_path, onnx_path, model_name, custom_objects=None):
     """

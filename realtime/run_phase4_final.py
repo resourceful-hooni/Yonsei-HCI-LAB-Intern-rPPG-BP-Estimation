@@ -36,7 +36,7 @@ def visualize_results():
     print("\n[*] Running visualization...")
     
     result = subprocess.run(
-        [sys.executable, 'visualize_transformer.py'],
+        [sys.executable, os.path.join('training', 'visualize_transformer.py')],
         capture_output=True,
         text=True,
         timeout=120
@@ -94,7 +94,7 @@ def main():
             print("OK PHASE 4 COMPLETED!")
             print("="*60)
             print("\nNext: Phase 5 - ONNX/TensorRT Optimization")
-            print("Command: python prepare_onnx_export.py")
+            print("Command: python deployment/prepare_onnx_export.py")
         else:
             print("Visualization failed")
     else:

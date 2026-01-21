@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import argparse
 from datetime import datetime
-from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
+from models.transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 
 
 def load_model_and_data():
