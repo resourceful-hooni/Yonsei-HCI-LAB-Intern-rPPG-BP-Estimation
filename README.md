@@ -1,4 +1,4 @@
-# ?�� Non-Invasive Blood Pressure Estimation Using Deep Learning
+# 🩺 Non-Invasive Blood Pressure Estimation Using Deep Learning
 
 [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/)
 [![TensorFlow 2.4](https://img.shields.io/badge/TensorFlow-2.4-orange.svg)](https://www.tensorflow.org/)
@@ -6,34 +6,34 @@
 
 **Yonsei HCI LAB Intern Project - 2026**
 
-## ?�� Project Overview
+## 📋 Project Overview
 
 A comprehensive deep learning system for non-invasive blood pressure (BP) estimation from remote photoplethysmography (rPPG) signals. This project implements and compares multiple state-of-the-art architectures, achieving clinical-grade accuracy with models optimized for edge deployment.
 
-### ?�� Key Achievements
+### 🏆 Key Achievements
 
 ```
-??Clinical-grade accuracy: SBP 0.84 mmHg / DBP 0.82 mmHg (91% better than AAMI standard)
-??95% model size reduction: 25M ??463K parameters
-??Real-time processing: ~20ms inference time (CPU)
-??Edge-ready deployment: ONNX export with 70% compression
-??Fully reproducible pipeline with comprehensive documentation
+✅ Clinical-grade accuracy: SBP 0.84 mmHg / DBP 0.82 mmHg (91% better than AAMI standard)
+✅ 95% model size reduction: 25M → 463K parameters
+✅ Real-time processing: ~20ms inference time (CPU)
+✅ Edge-ready deployment: ONNX export with 70% compression
+✅ Fully reproducible pipeline with comprehensive documentation
 ```
 
-### ?�� Model Performance Comparison
+### 📊 Model Performance Comparison
 
 | Model | SBP MAE | DBP MAE | Parameters | Size | Inference | Status |
 |-------|---------|---------|------------|------|-----------|--------|
-| Domain Adaptation | 1.22 mmHg | 1.11 mmHg | 25M | 62.1 MB | ~50ms | ??|
-| Multi-Task Learning | **0.84 mmHg** | **0.83 mmHg** | 10M | 9.7 MB | ~30ms | ??|
-| Transformer | 0.84 mmHg | **0.82 mmHg** | **463K** | **7.7 MB** | **~20ms** | ??|
+| Domain Adaptation | 1.22 mmHg | 1.11 mmHg | 25M | 62.1 MB | ~50ms | ✅ |
+| Multi-Task Learning | **0.84 mmHg** | **0.83 mmHg** | 10M | 9.7 MB | ~30ms | ✅ |
+| Transformer | 0.84 mmHg | **0.82 mmHg** | **463K** | **7.7 MB** | **~20ms** | ✅ |
 
 > **Clinical Benchmark (AAMI Standard):** SBP < 10 mmHg, DBP < 8 mmHg  
 > **Our Best Performance:** 91.6% improvement over clinical threshold
 
 ---
 
-## ?�� Research Foundation
+## 📚 Research Foundation
 
 Based on and extending: "Assessment of non-invasive blood pressure prediction from PPG and rPPG signals using deep learning" ([Schrumpf et al., 2021](https://www.mdpi.com/1424-8220/21/18/6022))
 
@@ -47,10 +47,10 @@ Based on and extending: "Assessment of non-invasive blood pressure prediction fr
 
 ---
 
-## ?? Quick Start
+## 🚀 Quick Start
 ---
 
-## ?? Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
@@ -116,72 +116,72 @@ python export_onnx.py
 
 ---
 
-## ?�� Project Structure
+## 📁 Project Structure
 
 ```
 non-invasive-bp-estimation-using-deep-learning/
-??
-?��??� ?�� Data & Models
-??  ?��??� data/
-??  ??  ?��??� rPPG-BP-UKL_rppg_7s.h5          # Preprocessed dataset (7,851 samples)
-??  ??  ?��??� rppg_train.h5                    # Training set (70%)
-??  ??  ?��??� rppg_val.h5                      # Validation set (15%)
-??  ??  ?��??� rppg_test.h5                     # Test set (15%)
-??  ??
-??  ?��??� models/
-??      ?��??� resnet_rppg_adapted.h5           # Domain Adaptation (62.1 MB)
-??      ?��??� multi_task_bp_model.h5           # Multi-Task (9.7 MB)
-??      ?��??� transformer_bp_model.h5          # Transformer (7.7 MB)
-??      ?��??� onnx/
-??          ?��??� multi_task.onnx              # MTL ONNX (3.17 MB)
-??          ?��??� transformer.onnx             # Transformer ONNX (2.29 MB)
-??
-?��??� ?�� Model Architectures
-??  ?��??� models/
-??  ??  ?��??� define_ResNet_1D.py              # ResNet for 1D signals
-??  ??  ?��??� define_LSTM.py                   # LSTM implementation
-??  ??  ?��??� slapnicar_model.py               # Slapnicar architecture
-??  ?��??� multi_task_model.py                  # Multi-Task Learning model
-??  ?��??� transformer_model.py                 # Transformer with Multi-Head Attention
-??
-?��??� ?�� Training & Evaluation
-??  ?��??� prepare_rppg_dataset.py              # Data preprocessing pipeline
-??  ?��??� domain_adaptation.py                 # Phase 3-1: Transfer learning
-??  ?��??� train_multi_task.py                  # Phase 3-2: Multi-task training
-??  ?��??� train_transformer.py                 # Phase 4: Transformer training
-??  ?��??� visualize_domain_adaptation.py       # Phase 3-1 visualization
-??  ?��??� visualize_multi_task.py              # Phase 3-2 visualization
-??  ?��??� visualize_transformer.py             # Phase 4 visualization
-??
-?��??� ?? Real-Time System
-??  ?��??� camera_rppg_advanced.py              # Main real-time application
-??  ?��??� pos_algorithm.py                     # POS signal extraction
-??  ?��??� signal_quality.py                    # Quality assessment
-??  ?��??� bp_stability.py                      # Kalman filtering
-??  ?��??� mediapipe_face_detector.py           # Face detection
-??
-?��??� ?�� Results & Documentation
-??  ?��??� results/
-??  ??  ?��??� *_predictions.png                # Prediction scatter plots
-??  ??  ?��??� *_error_distribution.png         # Error histograms
-??  ??  ?��??� *_summary_report.txt             # Performance reports
-??  ?��??� PROJECT_FINAL_SUMMARY.md             # Complete project summary
-??  ?��??� PROJECT_COMPLETION_SUMMARY.txt       # Detailed progress log
-??  ?��??� README.md                            # This file
-??
-?��??� ?���?Deployment
-??  ?��??� export_onnx.py                       # ONNX conversion
-??  ?��??� prepare_onnx_export.py               # Deployment guide
-??
-?��??� ?�� Configuration
-    ?��??� requirements.txt                      # Python dependencies
-    ?��??� .gitignore                           # Git ignore rules
-    ?��??� LICENSE.md                           # MIT License
+│
+├── 📦 Data & Models
+│   ├── data/
+│  │   ├── rPPG-BP-UKL_rppg_7s.h5          # Preprocessed dataset (7,851 samples)
+│  │   ├── rppg_train.h5                    # Training set (70%)
+│  │   ├── rppg_val.h5                      # Validation set (15%)
+│  │   ├── rppg_test.h5                     # Test set (15%)
+│  │
+│   ├── models/
+│       ├── resnet_rppg_adapted.h5           # Domain Adaptation (62.1 MB)
+│       ├── multi_task_bp_model.h5           # Multi-Task (9.7 MB)
+│       ├── transformer_bp_model.h5          # Transformer (7.7 MB)
+│       ├── onnx/
+│          ├── multi_task.onnx              # MTL ONNX (3.17 MB)
+│          ├── transformer.onnx             # Transformer ONNX (2.29 MB)
+│
+├── 🧠 Model Architectures
+│   ├── models/
+│  │   ├── define_ResNet_1D.py              # ResNet for 1D signals
+│  │   ├── define_LSTM.py                   # LSTM implementation
+│  │   ├── slapnicar_model.py               # Slapnicar architecture
+│   ├── multi_task_model.py                  # Multi-Task Learning model
+│   ├── transformer_model.py                 # Transformer with Multi-Head Attention
+│
+├── 📊 Training & Evaluation
+│   ├── prepare_rppg_dataset.py              # Data preprocessing pipeline
+│   ├── domain_adaptation.py                 # Phase 3-1: Transfer learning
+│   ├── train_multi_task.py                  # Phase 3-2: Multi-task training
+│   ├── train_transformer.py                 # Phase 4: Transformer training
+│   ├── visualize_domain_adaptation.py       # Phase 3-1 visualization
+│   ├── visualize_multi_task.py              # Phase 3-2 visualization
+│   ├── visualize_transformer.py             # Phase 4 visualization
+│
+├── ⚡ Real-Time System
+│   ├── camera_rppg_advanced.py              # Main real-time application
+│   ├── pos_algorithm.py                     # POS signal extraction
+│   ├── signal_quality.py                    # Quality assessment
+│   ├── bp_stability.py                      # Kalman filtering
+│   ├── mediapipe_face_detector.py           # Face detection
+│
+├── 📈 Results & Documentation
+│   ├── results/
+│  │   ├── *_predictions.png                # Prediction scatter plots
+│  │   ├── *_error_distribution.png         # Error histograms
+│  │   ├── *_summary_report.txt             # Performance reports
+│   ├── PROJECT_FINAL_SUMMARY.md             # Complete project summary
+│   ├── PROJECT_COMPLETION_SUMMARY.txt       # Detailed progress log
+│   ├── README.md                            # This file
+│
+├── 🚀 Deployment
+│   ├── export_onnx.py                       # ONNX conversion
+│   ├── prepare_onnx_export.py               # Deployment guide
+│
+└── ⚙️ Configuration
+    ├── requirements.txt                      # Python dependencies
+    ├── .gitignore                           # Git ignore rules
+    ├── LICENSE.md                           # MIT License
 ```
 
 ---
 
-## ?�� Technical Architecture
+## 🔧 Technical Architecture
 
 ### Data Processing Pipeline
 
@@ -611,23 +611,23 @@ model = tf.keras.models.load_model('transformer_bp_model.h5', custom_objects=cus
 
 ---
 
-## ?�� Performance Analysis
+## 📈 Performance Analysis
 
 ### Clinical Validation
 
 ```
 AAMI Standard (Clinical Threshold):
-?��? SBP: < 10 mmHg MAE
-?��? DBP: < 8 mmHg MAE
+✅ SBP: < 10 mmHg MAE
+✅ DBP: < 8 mmHg MAE
 
 Our Results (Transformer):
-?��? SBP: 0.84 mmHg (91.6% better)
-?��? DBP: 0.82 mmHg (89.8% better)
+✅ SBP: 0.84 mmHg (91.6% better)
+✅ DBP: 0.82 mmHg (89.8% better)
 
 Error Distribution:
-?��? 95th percentile: < 2.5 mmHg
-?��? Standard deviation: ~1.0 mmHg
-?��? Outliers: < 2% of predictions
+📊 95th percentile: < 2.5 mmHg
+📊 Standard deviation: ~1.0 mmHg
+📊 Outliers: < 2% of predictions
 ```
 
 ### Model Comparison
@@ -650,16 +650,16 @@ Error Distribution:
 
 ```
 Dataset: UKL rPPG-BP (Preprocessed)
-?��? Total Samples: 7,851
-?��? Signal Length: 875 samples (7s @ 125 Hz)
-?��? Train/Val/Test: 70% / 15% / 15%
-?��? SBP Range: 90-180 mmHg
-?��? DBP Range: 60-120 mmHg
+📊 Total Samples: 7,851
+📊 Signal Length: 875 samples (7s @ 125 Hz)
+📊 Train/Val/Test: 70% / 15% / 15%
+📊 SBP Range: 90-180 mmHg
+📊 DBP Range: 60-120 mmHg
 ```
 
 ---
 
-## ?���?Advanced Usage
+## ⚙️ Advanced Usage
 
 ### Custom Training Configuration
 
@@ -712,7 +712,7 @@ predictions = session.run(None, {'input': signal})
 
 ---
 
-## ?�� Testing & Validation
+## 🧪 Testing & Validation
 
 ### Real-Time System Tests
 
@@ -1225,7 +1225,7 @@ predictions = session.run(None, {'input': batch_signals})
 
 ---
 
-## ?? Future Work
+## 🔮 Future Work
 
 ### Short-term (1-3 months)
 - [ ] Model ensemble combining all 3 architectures
@@ -1247,7 +1247,7 @@ predictions = session.run(None, {'input': batch_signals})
 
 ---
 
-## ?�� Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to:
 
@@ -1277,7 +1277,7 @@ git push origin feature/your-feature-name
 
 ---
 
-## ?�� License
+## 📜 License
 
 MIT License - see [LICENSE.md](LICENSE.md) for details.
 
@@ -1285,7 +1285,7 @@ Free to use, modify, and distribute for academic and commercial purposes.
 
 ---
 
-## ?�� Acknowledgments
+## 🙏 Acknowledgments
 
 - **Yonsei HCI LAB** - Research environment and support
 - **Schrumpf et al.** - Original paper and baseline implementation
@@ -1296,7 +1296,7 @@ Free to use, modify, and distribute for academic and commercial purposes.
 
 ---
 
-## ?�� Contact
+## 📧 Contact
 
 **Developer**: Resourceful Hooni  
 **Affiliation**: Yonsei HCI LAB (Intern)  
@@ -1305,33 +1305,33 @@ Free to use, modify, and distribute for academic and commercial purposes.
 
 For questions, suggestions, or collaboration:
 - Open an issue on GitHub
-- Star �?the repo if you find it useful!
+- Star ⭐ the repo if you find it useful!
 
 ---
 
-## ?�� Project Statistics
+## 📊 Project Statistics
 
 ```
-?�� Total Files: 50+
-?�� Lines of Code: 15,000+
-?�� Models Trained: 3 architectures
-?�� Accuracy: 91.6% better than clinical standard
-??Inference Speed: 20ms (50 FPS capable)
-?�� Model Size: 2.29 MB (ONNX Transformer)
-?�� Best MAE: SBP 0.84 mmHg, DBP 0.82 mmHg
+� Total Files: 50+
+📊 Lines of Code: 15,000+
+📊 Models Trained: 3 architectures
+📊 Accuracy: 91.6% better than clinical standard
+⚡ Inference Speed: 20ms (50 FPS capable)
+📊 Model Size: 2.29 MB (ONNX Transformer)
+📊 Best MAE: SBP 0.84 mmHg, DBP 0.82 mmHg
 ```
 
 ---
 
 <div align="center">
 
-### ?�� Project Complete! ?��
+### 🎉 Project Complete! 🎊
 
 **"Advancing Non-Invasive Healthcare Through AI"**
 
-Made with ?�️ at Yonsei HCI LAB | 2026
+Made with ❤️ at Yonsei HCI LAB | 2026
 
-[�?Back to Top](#-non-invasive-blood-pressure-estimation-using-deep-learning)
+[⬆️ Back to Top](#-non-invasive-blood-pressure-estimation-using-deep-learning)
 
 </div>
 
