@@ -171,19 +171,9 @@ All saved to `results/`:
 - `ms_tcn_bland_altman.png` - Clinical agreement analysis
 - `ms_tcn_error_distribution.png` - Error histograms
 
-**Model Performance Visualization:**
+**Performance Visualization:**
 
 ![MS-TCN All Visualizations](results/ms_tcn_all_visualizations.png)
-
-**Detailed Performance Charts:**
-
-| Training Curves | Error Distribution |
-|---|---|
-| ![Training Curves](results/ms_tcn_training_curves.png) | ![Error Distribution](results/ms_tcn_error_distribution.png) |
-
-| Predictions vs Ground Truth | Bland-Altman Agreement |
-|---|---|
-| ![Predictions](results/ms_tcn_predictions.png) | ![Bland-Altman](results/ms_tcn_bland_altman.png) |
 
 ---
 
