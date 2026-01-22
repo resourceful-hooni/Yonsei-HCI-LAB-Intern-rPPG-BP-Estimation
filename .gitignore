@@ -19,4 +19,8 @@ data/*.hdf5
 # Checkpoints / logs
 checkpoints/
 logs/
-results/
+results/*.h5
+results/*.json
+results/*.csv
+results/*.txt
+results/ms_tcn_attention_final/

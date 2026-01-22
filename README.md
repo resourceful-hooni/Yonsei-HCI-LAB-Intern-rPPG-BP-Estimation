@@ -29,6 +29,10 @@ A comprehensive deep learning system for **non-invasive blood pressure (BP) esti
 | Transformer | 0.84 mmHg | 0.82 mmHg | 463K | 7.7 MB | Available |
 | **MS-TCN + Attention** | **5.91 mmHg** | **3.61 mmHg** | **584K** | **2.29 MB** | **Stable** |
 
+**Visual Performance Comparison:**
+
+![Performance Comparison](results/performance_comparison.png)
+
 ---
 
 ## 📚 Research Foundation
@@ -167,11 +171,19 @@ All saved to `results/`:
 - `ms_tcn_bland_altman.png` - Clinical agreement analysis
 - `ms_tcn_error_distribution.png` - Error histograms
 
-**Key Performance Visualizations** (generated locally):
-- Training curves showing convergence and stability
-- Error distributions for SBP and DBP predictions
-- Bland-Altman plots for clinical agreement validation
-- Predictions vs ground truth scatter plots
+**Model Performance Visualization:**
+
+![MS-TCN All Visualizations](results/ms_tcn_all_visualizations.png)
+
+**Detailed Performance Charts:**
+
+| Training Curves | Error Distribution |
+|---|---|
+| ![Training Curves](results/ms_tcn_training_curves.png) | ![Error Distribution](results/ms_tcn_error_distribution.png) |
+
+| Predictions vs Ground Truth | Bland-Altman Agreement |
+|---|---|
+| ![Predictions](results/ms_tcn_predictions.png) | ![Bland-Altman](results/ms_tcn_bland_altman.png) |
 
 ---
 
@@ -498,9 +510,7 @@ confidence = 0.4 × signal_quality + 0.3 × (1 - outlier_ratio) + 0.3 × buffer_
 
 **Training Progress Visualization:**
 
-Generated during training process:
-- Learning curves with convergence analysis
-- Real-time loss monitoring for train/validation split
+![Training Curves](results/training_curves.png)
 
 ### Key Insights
 
@@ -513,10 +523,15 @@ Generated during training process:
 | SBP Performance | Good (R² = 0.6511) |
 | Clinical Ready | Yes for DBP, refinement needed for SBP |
 
-**Performance Metrics** (generated during model evaluation):
-- Multi-task learning error analysis
-- Transformer model performance comparison
-- Detailed prediction accuracy metrics
+**Error Analysis Visualizations:**
+
+| Multi-Task Learning | Transformer Model |
+|---|---|
+| ![MTL Error](results/mtl_error_distribution.png) | ![Transformer Error](results/transformer_error_distribution.png) |
+
+| MTL Predictions | Transformer Predictions |
+|---|---|
+| ![MTL Predictions](results/mtl_predictions.png) | ![Transformer Predictions](results/transformer_predictions.png) |
 
 ---
 
