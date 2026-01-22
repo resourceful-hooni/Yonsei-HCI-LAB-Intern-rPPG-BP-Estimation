@@ -30,11 +30,11 @@ try:
 except ImportError:
     timer = time.time  # Fallback
 
-from .mediapipe_face_detector import MediaPipeFaceDetector
-from .pos_algorithm import POSExtractor
-from .signal_quality import SignalQualityAssessor, ROIStabilizer
-from .bp_stability import BPStabilizer
-from models.transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
+from mediapipe_face_detector import MediaPipeFaceDetector
+from pos_algorithm import POSExtractor
+from signal_quality import SignalQualityAssessor, ROIStabilizer
+from bp_stability import BPStabilizer
+from transformer_model import MultiHeadAttention, EncoderLayer, TransformerEncoder
 from kapre import STFT, Magnitude, MagnitudeToDecibel
 from scipy.signal import resample, butter, filtfilt
 
@@ -100,8 +100,7 @@ class IntegratedRPPGPipeline:
     
     def __init__(self, model_path: str, fs: float = 30, duration: float = 7,
                  target_len: int = 875, use_mediapipe: bool = True,
-                 enable_bbox_filter: bool = True,
-                 use_quality_filters: bool = True):
+                 enable_bbox_filter: bool = True):
         """
         Args:
             model_path: Path to trained model (.h5)
@@ -119,7 +118,6 @@ class IntegratedRPPGPipeline:
         self.duration = duration
         self.target_len = target_len
         self.window_size = int(duration * fs)
-        self.use_quality_filters = use_quality_filters
         
         # === Stage 1: Face Detection ===
         print("[Stage 1] Initializing Face Detector...")
@@ -327,11 +325,14 @@ class IntegratedRPPGPipeline:
             # === Stage 5: Signal Quality Analysis ===
             t0 = timer()
             
-            # Optional preprocessing (detrend/filter/smooth) to match training distribution
-            if self.use_quality_filters:
-                signal = self.quality_assessor.detrend_signal(signal)
-                signal = self.quality_assessor.adaptive_filtering(signal)
-                signal = self.quality_assessor.temporal_smoothing(signal, alpha=0.3)
+            # Detrend (lighting correction)
+            signal = self.quality_assessor.detrend_signal(signal)
+            
+            # Adaptive filtering
+            signal = self.quality_assessor.adaptive_filtering(signal)
+            
+            # Temporal smoothing
+            signal = self.quality_assessor.temporal_smoothing(signal, alpha=0.3)
             
             # Quality assessment
             quality_score, metrics = self.quality_assessor.assess_quality(signal)
@@ -466,7 +467,7 @@ if __name__ == "__main__":
     print("Integrated rPPG BP Estimation Pipeline")
     print("Import this module to use the pipeline")
     print("\nExample usage:")
-    print("  from realtime.integrated_pipeline import IntegratedRPPGPipeline")
+    print("  from integrated_pipeline import IntegratedRPPGPipeline")
     print("  pipeline = IntegratedRPPGPipeline('data/transformer_bp_model.h5')")
     print("  status = pipeline.process_frame(frame)")
     print("  results = pipeline.extract_and_predict()")
