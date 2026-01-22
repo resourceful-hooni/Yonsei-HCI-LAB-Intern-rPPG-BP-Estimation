@@ -29,6 +29,10 @@ A comprehensive deep learning system for **non-invasive blood pressure (BP) esti
 | Transformer | 0.84 mmHg | 0.82 mmHg | 463K | 7.7 MB | Available |
 | **MS-TCN + Attention** | **5.91 mmHg** | **3.61 mmHg** | **584K** | **2.29 MB** | **Stable** |
 
+**Visual Performance Comparison:**
+
+![Performance Comparison](results/performance_comparison.png)
+
 ---
 
 ## 📚 Research Foundation
@@ -166,6 +170,20 @@ All saved to `results/`:
 - `ms_tcn_predictions.png` - Predicted vs ground truth
 - `ms_tcn_bland_altman.png` - Clinical agreement analysis
 - `ms_tcn_error_distribution.png` - Error histograms
+
+**Model Performance Visualization:**
+
+![MS-TCN All Visualizations](results/ms_tcn_all_visualizations.png)
+
+**Detailed Performance Charts:**
+
+| Training Curves | Error Distribution |
+|---|---|
+| ![Training Curves](results/ms_tcn_training_curves.png) | ![Error Distribution](results/ms_tcn_error_distribution.png) |
+
+| Predictions vs Ground Truth | Bland-Altman Agreement |
+|---|---|
+| ![Predictions](results/ms_tcn_predictions.png) | ![Bland-Altman](results/ms_tcn_bland_altman.png) |
 
 ---
 
@@ -490,6 +508,10 @@ confidence = 0.4 × signal_quality + 0.3 × (1 - outlier_ratio) + 0.3 × buffer_
 | Val | 5.33 mmHg | 3.43 mmHg |
 | Test | 5.91 mmHg | 3.61 mmHg |
 
+**Training Progress Visualization:**
+
+![Training Curves](results/training_curves.png)
+
 ### Key Insights
 
 | Aspect | Finding |
@@ -501,9 +523,39 @@ confidence = 0.4 × signal_quality + 0.3 × (1 - outlier_ratio) + 0.3 × buffer_
 | SBP Performance | Good (R² = 0.6511) |
 | Clinical Ready | Yes for DBP, refinement needed for SBP |
 
+**Error Analysis Visualizations:**
+
+| Multi-Task Learning | Transformer Model |
+|---|---|
+| ![MTL Error](results/mtl_error_distribution.png) | ![Transformer Error](results/transformer_error_distribution.png) |
+
+| MTL Predictions | Transformer Predictions |
+|---|---|
+| ![MTL Predictions](results/mtl_predictions.png) | ![Transformer Predictions](results/transformer_predictions.png) |
+
 ---
 
 ## 🧪 Testing & Validation
+
+**Real-Time Pipeline State Diagram:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> CameraCapture: Start
+    CameraCapture --> FaceDetection: Frame Received
+    FaceDetection --> ROIExtraction: Face Found
+    ROIExtraction --> POSAlgorithm: ROI Extracted
+    POSAlgorithm --> SignalQuality: Signal Generated
+    SignalQuality --> HighQuality: Quality > 0.7
+    SignalQuality --> LowQuality: Quality < 0.7
+    HighQuality --> ModelInference: Process Signal
+    LowQuality --> CameraCapture: Retry
+    ModelInference --> KalmanFilter: Predictions Ready
+    KalmanFilter --> BPOutput: Stabilized
+    BPOutput --> Display: Show Results
+    Display --> CameraCapture: Next Frame
+    CameraCapture --> [*]: Stop
+```
 
 ### Real-Time System Tests
 
@@ -545,6 +597,8 @@ print(f"SBP MAE: {mae_sbp:.2f} mmHg, DBP MAE: {mae_dbp:.2f} mmHg")
 
 ### Data Processing Pipeline
 
+**System Flow Diagram:**
+
 ```
 Raw Camera Feed → Face Detection → ROI Extraction → POS Algorithm
      ↓               ↓                    ↓               ↓
@@ -553,6 +607,21 @@ Raw Camera Feed → Face Detection → ROI Extraction → POS Algorithm
                             Bandpass Filter (0.7-4 Hz) → Quality Assessment
                                                          ↓
                             Model Inference → Kalman Filter → BP Prediction
+```
+
+**Detailed Processing Pipeline (Mermaid):**
+
+```mermaid
+graph LR
+    A["📷 Raw Camera Feed<br/>(30 FPS)"] --> B["😊 Face Detection<br/>(Haar/MediaPipe)"]
+    B --> C["🎯 ROI Extraction<br/>(Forehead Region)"]
+    C --> D["🔴 POS Algorithm<br/>(Color Analysis)"]
+    D --> E["📈 Pulse Signal<br/>(rPPG)"]
+    E --> F["🔊 Bandpass Filter<br/>(0.7-4 Hz)"]
+    F --> G["✅ Quality Assessment<br/>(SNR/Peak Regularity)"]
+    G --> H["🧠 Model Inference<br/>(Transformer/ResNet)"]
+    H --> I["🛡️ Kalman Filter<br/>(Smoothing)"]
+    I --> J["❤️ BP Prediction<br/>(SBP/DBP mmHg)"]
 ```
 
 ### Model Architectures Comparison
@@ -685,7 +754,25 @@ BP_mmHg = BP_normalized × label_scale + label_mean
 
 ---
 
-## Training Pipeline
+## 📚 Training Pipeline
+
+**Training Workflow Diagram:**
+
+```mermaid
+graph TD
+    A["📊 Raw Dataset<br/>(PPG/rPPG signals)"] --> B["🔄 Phase 1<br/>Dataset Prep"]
+    B --> C["📦 Preprocessed<br/>Train/Val/Test"]
+    C --> D["🎯 Phase 2<br/>Domain Adaptation"]
+    D --> E["📈 Phase 3<br/>Multi-Task Learn"]
+    E --> F["🤖 Phase 4<br/>Transformer"]
+    F --> G["📡 Phase 5<br/>ONNX Export"]
+    G --> H["✅ Final Models<br/>(H5 + ONNX)"]
+    
+    D -->|95% improvement| I["✅ Domain Adapted"]
+    E -->|0.84 MAE| J["✅ Multi-Task"]
+    F -->|0.82 MAE| K["✅ Best Model"]
+    H --> L["🚀 Ready for Deployment"]
+```
 
 ### Complete 5-Phase Training Process
 
