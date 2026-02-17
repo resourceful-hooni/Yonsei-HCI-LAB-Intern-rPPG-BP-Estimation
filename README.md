@@ -6,6 +6,30 @@
 
 **Yonsei HCI LAB Intern Project - 2026**
 
+---
+
+## 🌐 Added Service: VisiVital Web App (NEW)
+
+The original research/training pipeline remains unchanged. In addition, a full web service implementation was added under [Web/visi-vital](Web/visi-vital).
+
+### What was added
+
+- Measurement web flow (camera-based 10s capture)
+- Summary dashboard (BP/Glucose cards, confidence trend, integrated weekly trend, quality checklist)
+- Lifestyle dashboard (7-day comparison, one-line daily comment, habit check/progress, before/after panel, notifications, recommendations)
+- Backend APIs (Flask) for measurement/summary/lifestyle with API key + rate limit + request size guard
+- SQLite persistence (measurements, quality metrics, habit check-ins, notification settings)
+- Research BP model bridge (MS-TCN weights path support, fallback handling)
+- Deployment bundle for other PCs: [Web/visi-vital/deploy_bundle](Web/visi-vital/deploy_bundle)
+
+### Web app run guide
+
+1. Backend: [Web/visi-vital/backend](Web/visi-vital/backend)
+2. Frontend: [Web/visi-vital/frontend](Web/visi-vital/frontend)
+3. Main docs: [Web/visi-vital/README.md](Web/visi-vital/README.md)
+
+> Note: this section is an extension. Existing research code/docs in this repository are preserved as-is.
+
 ## 📋 Project Overview
 
 A comprehensive deep learning system for **non-invasive blood pressure (BP) estimation** from **remote photoplethysmography (rPPG) signals** 📱. This means we use your phone's camera to detect tiny color changes in your face caused by blood flow, then use AI to predict your blood pressure without any wearable devices! This project implements and compares multiple state-of-the-art architectures, achieving clinical-grade accuracy with models optimized for edge deployment.
