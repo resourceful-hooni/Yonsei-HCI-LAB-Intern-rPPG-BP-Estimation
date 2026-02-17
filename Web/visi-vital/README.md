@@ -45,6 +45,24 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 2. `npm install`
 3. `npm start`
 
+## 3-1) Docker 실행 방법
+
+루트([docker-compose.yml](docker-compose.yml))에서:
+
+1. 이미지 빌드 + 컨테이너 실행
+	- `docker compose up -d --build`
+2. 상태 확인
+	- `docker compose ps`
+3. 접속
+	- 프론트: http://localhost:3000
+	- 백엔드 헬스: http://localhost:5000/api/health
+4. 종료
+	- `docker compose down`
+
+참고:
+- 프론트 컨테이너는 Nginx로 정적 파일을 서빙하며 `/api`를 백엔드로 프록시합니다.
+- DB는 호스트 [data](data) 폴더를 볼륨으로 사용합니다.
+
 ## 4) 환경 변수(.env)
 
 주요 값:
@@ -82,6 +100,16 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 - API 실패: `http://127.0.0.1:5000/api/health` 확인
 - 체크리스트 fallback 고정: 최신 측정 저장 여부/백엔드 재시작 확인
 - 시간 라벨 미표시: 브라우저 캐시 삭제 후 새로고침
+- Docker 실행 오류: Docker Desktop 실행 여부, WSL2 활성화 여부 확인
+
+## 7-1) Windows Docker 설치
+
+1. Docker Desktop 설치(관리자 PowerShell)
+	- `winget install -e --id Docker.DockerDesktop`
+2. Docker Desktop 실행 후 초기 설정 완료
+3. 터미널 재시작 후 확인
+	- `docker --version`
+	- `docker compose version`
 
 ## 8) 면책
 
