@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+venv/
+env/
+
+# Backend runtime data
+*.db
+*.sqlite
+*.sqlite3
+
+# Node
+frontend/node_modules/
+frontend/.cache/
+
+# React build artifacts (keep if you want static release only)
+# frontend/build/
+
+# Env & secrets
+.env
+backend/.env
+frontend/.env
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
