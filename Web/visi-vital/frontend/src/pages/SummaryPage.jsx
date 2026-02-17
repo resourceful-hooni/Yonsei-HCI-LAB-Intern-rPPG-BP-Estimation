@@ -50,17 +50,31 @@ function SummaryPage() {
     : [{ date: 'today', value: Number(daily.current_values?.confidence || 0) }];
 
   const toTimeLabel = (label, timestamp) => {
-    const rawLabel = String(label || '');
-    if (rawLabel.includes(':') && rawLabel.includes(' ')) return rawLabel;
     const rawTs = String(timestamp || '');
     if (rawTs) {
-      const normalized = rawTs.replace('T', ' ').replace('Z', '').split('.')[0];
-      const m = normalized.match(/^(\d{4}-\d{2}-\d{2})\s(\d{2}:\d{2})/);
-      if (m) {
-        const md = m[1].slice(5);
-        return `${md} ${m[2]}`;
+      const hasExplicitTz = /([zZ]|[+\-]\d{2}:?\d{2})$/.test(rawTs);
+      const normalizedTs = hasExplicitTz
+        ? rawTs
+        : `${rawTs.replace(' ', 'T').split('.')[0]}Z`;
+      const d = new Date(normalizedTs);
+      if (!Number.isNaN(d.getTime())) {
+        const parts = new Intl.DateTimeFormat('ko-KR', {
+          timeZone: 'Asia/Seoul',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).formatToParts(d);
+        const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+        if (map.month && map.day && map.hour && map.minute) {
+          return `${map.month}-${map.day} ${map.hour}:${map.minute}`;
+        }
       }
     }
+
+    const rawLabel = String(label || '');
+    if (rawLabel.includes(':') && rawLabel.includes(' ')) return rawLabel;
     return rawLabel;
   };
 
@@ -207,7 +221,7 @@ function SummaryPage() {
                 <span className={`quality ${item.status === '좋음' ? 'good' : item.status === '보통' ? 'mid' : 'bad'}`}>{item.status}</span>
               </div>
               {Number.isFinite(Number(item.score)) && (
-                <small>점수: {Math.round(Number(item.score) * 100)}%</small>
+                <small>점수: {Math.round(Number(item.score) * 100)}%{' '}</small>
               )}
               <small>{item.tip}</small>
             </div>

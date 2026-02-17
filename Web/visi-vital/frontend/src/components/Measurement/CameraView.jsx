@@ -201,14 +201,21 @@ function CameraView({ userId, onResult }) {
             ctx.strokeStyle = '#5C7CFA';
             ctx.lineWidth = 1;
             points.forEach((pt) => {
-              const x = pt.x * videoW * scale + offsetX;
+              const x = overlay.width - (pt.x * videoW * scale + offsetX);
               const y = pt.y * videoH * scale + offsetY;
               ctx.beginPath();
               ctx.arc(x, y, 1, 0, Math.PI * 2);
               ctx.stroke();
             });
 
-            // 중앙 상단 텍스트
+            // 중앙 상단 텍스트 (항상 정방향)
+            ctx.save();
+            if (typeof ctx.resetTransform === 'function') {
+              ctx.resetTransform();
+            } else {
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+            }
+
             const text = '얼굴이 감지되었습니다.';
             ctx.font = 'bold 16px sans-serif';
             const metrics = ctx.measureText(text);
@@ -222,6 +229,8 @@ function CameraView({ userId, onResult }) {
             ctx.fillRect(boxX, boxY, boxW, boxH);
             ctx.fillStyle = '#e0e7ff';
             ctx.fillText(text, boxX + padX, boxY + 20);
+            ctx.restore();
+
           }
           if (!hasFace) {
             prevFaceCenterRef.current = null;

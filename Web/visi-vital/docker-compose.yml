@@ -12,7 +12,7 @@ services:
       SECRET_KEY: change-this-in-production
       API_KEY: your-frontend-api-key
       DATABASE_PATH: /app/data/visi_vital.db
-      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,https://yonseihci.kro.kr,http://yonseihci.kro.kr,https://physicalai.duckdns.org,http://physicalai.duckdns.org
       RATE_LIMIT_PER_MINUTE: 100
       MAX_CONTENT_LENGTH: 80
       USE_DUMMY_GLUCOSE: "True"
@@ -37,3 +37,22 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: visivital-caddy
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

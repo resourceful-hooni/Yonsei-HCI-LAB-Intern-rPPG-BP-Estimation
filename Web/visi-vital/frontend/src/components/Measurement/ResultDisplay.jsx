@@ -39,6 +39,11 @@ function ResultDisplay({ result, onRetry }) {
         혈압 추정 소스: 내 혈압 AI 모델(MS-TCN + Linear Attention, rPPG 특화)
         {result.bp_source === 'research_model' ? ' 사용 중' : ' 폴백 모드'}
       </p>
+      <img
+        src="/images/ms_tcn_predictions.png"
+        alt="MS-TCN 혈압 추정 결과 시각화"
+        style={{ width: 220, maxWidth: '100%', borderRadius: 8, marginTop: -6, marginBottom: 10, opacity: 0.95 }}
+      />
 
       <p className="subtitle">혈당 값 소스: 더미데이터(참고용)</p>
 

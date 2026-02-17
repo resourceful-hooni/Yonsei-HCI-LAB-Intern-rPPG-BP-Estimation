@@ -1,0 +1,25 @@
+{
+    email admin@yonseihci.kro.kr
+}
+
+yonseihci.kro.kr {
+    encode gzip
+
+    @index path / /index.html
+    header @index Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    header @index Pragma "no-cache"
+    header @index Expires "0"
+
+    @static path /static/*
+    header @static Cache-Control "public, immutable, max-age=31536000"
+
+    tls {
+        issuer acme https://acme.zerossl.com/v2/DV90
+        issuer acme
+    }
+
+    @api path /api/*
+    reverse_proxy @api backend:5000
+
+    reverse_proxy frontend:80
+}

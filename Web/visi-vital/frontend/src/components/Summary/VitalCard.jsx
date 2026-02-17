@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 
 function VitalCard({ type, systolic, diastolic, value, status, trendData = [] }) {
+  const [showInfo, setShowInfo] = useState(false);
   const isBP = type === 'blood-pressure';
   const title = isBP ? '혈압' : '혈당';
   const icon = isBP ? '💧' : '🩸';
+  const infoText = isBP
+    ? '혈압은 심장이 수축·이완할 때 혈관에 가해지는 압력입니다. 표시값은 수축기/이완기(mmHg)입니다.'
+    : '혈당은 혈액 내 포도당 농도입니다. 표시값은 현재 추정된 상대 지표로, 추이 확인용 참고값입니다.';
   const display = isBP ? `${systolic} / ${diastolic}` : `${value}`;
   const tone = status === '안정적' ? 'stable' : status === '관심 필요' ? 'watch' : 'care';
   const values = (trendData || []).map((d) => Number(d.value || 0));
@@ -34,7 +39,26 @@ function VitalCard({ type, systolic, diastolic, value, status, trendData = [] })
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <button className="ghost">ℹ️ 설명</button>
+      <div
+        className={`info-wrap ${showInfo ? 'open' : ''}`}
+        onMouseEnter={() => setShowInfo(true)}
+        onMouseLeave={() => setShowInfo(false)}
+      >
+        <button
+          className="ghost info-trigger"
+          type="button"
+          aria-label={`${title} 설명 보기`}
+          aria-expanded={showInfo}
+          onClick={() => setShowInfo((prev) => !prev)}
+          onFocus={() => setShowInfo(true)}
+          onBlur={() => setShowInfo(false)}
+        >
+          ℹ️ 설명
+        </button>
+        <div className="info-popover" role="tooltip">
+          {infoText}
+        </div>
+      </div>
     </div>
   );
 }
