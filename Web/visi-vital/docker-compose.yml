@@ -30,7 +30,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_KEY: your-frontend-api-key
         REACT_APP_API_BASE_URL: /api
     container_name: visivital-frontend
     ports:

@@ -359,23 +359,33 @@ function CameraView({ userId, onResult }) {
 
         if (frames.length >= TOTAL_FRAMES) {
           clearInterval(timerRef.current);
+          timerRef.current = null;
           setMessage('분석 중입니다...');
 
-          const avg = (arr) => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null;
-          const qualityMetrics = {
-            lighting_score: avg(qualityRef.current.lightingSamples),
-            movement_score: avg(qualityRef.current.movementSamples),
-            alignment_score: avg(qualityRef.current.alignmentSamples),
-            face_detected_ratio: qualityRef.current.sampledFrames
-              ? qualityRef.current.detectedFrames / qualityRef.current.sampledFrames
-              : null,
-            method: 'frontend_vision',
-          };
+          try {
+            const avg = (arr) => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null;
+            const qualityMetrics = {
+              lighting_score: avg(qualityRef.current.lightingSamples),
+              movement_score: avg(qualityRef.current.movementSamples),
+              alignment_score: avg(qualityRef.current.alignmentSamples),
+              face_detected_ratio: qualityRef.current.sampledFrames
+                ? qualityRef.current.detectedFrames / qualityRef.current.sampledFrames
+                : null,
+              method: 'frontend_vision',
+            };
 
-          const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
-          onResult(res.data);
-          setMessage('밝은 곳에서 측정하면 더 정확해요');
-          setIsMeasuring(false);
+            const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
+            onResult(res.data);
+            setMessage('밝은 곳에서 측정하면 더 정확해요');
+          } catch (err) {
+            if ((err.message || '').includes('Payload Too Large') || (err.message || '').includes('전송 데이터가 너무 큽니다')) {
+              setMessage('전송 용량이 커서 실패했어요. 자동 압축 설정을 적용했으니 다시 시도해주세요.');
+            } else {
+              setMessage(err.message || '분석 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
+          } finally {
+            setIsMeasuring(false);
+          }
         }
       }, Math.round(1000 / FPS));
     } catch (err) {

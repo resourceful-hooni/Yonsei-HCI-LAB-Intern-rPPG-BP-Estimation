@@ -2,12 +2,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
-ARG REACT_APP_API_KEY=your-frontend-api-key
 ARG REACT_APP_API_BASE_URL=/api
-ENV REACT_APP_API_KEY=${REACT_APP_API_KEY}
 ENV REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
 RUN npm run build
 
