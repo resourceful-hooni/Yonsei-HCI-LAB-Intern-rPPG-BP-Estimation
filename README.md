@@ -1000,6 +1000,37 @@ For questions or collaboration: Open an issue on GitHub
 ✓ Model Size: 2.29 MB (MS-TCN)
 ```
 
+---
+
+## 🌐 Added Update: VisiVital Web Service (Appended)
+
+> 기존 연구/학습 파이프라인 내용은 그대로 유지하고, 아래 내용만 추가 업데이트했습니다.
+
+### What was added
+- Web 서비스 구현 추가 (Frontend React + Backend Flask + SQLite)
+- 측정/요약/생활가이드 화면 및 API 연동
+- 측정 품질 메타(조명/움직임/정렬) 저장 및 요약 반영
+- Docker 배포 구성 추가 (`backend`, `frontend`, Nginx reverse proxy)
+
+### Latest stability updates (2026-02-17)
+- 측정 완료 후 `분석 중입니다...` 무한 대기 이슈 완화
+  - 프론트 측정 처리 구간 예외 처리 보강
+- Nginx 업로드/타임아웃 설정 보강
+  - 대용량 측정 payload 전송 안정화
+- Docker 경고 정리
+  - 프론트 Dockerfile의 API key `ARG/ENV` 제거
+
+### Run (Docker)
+- VisiVital 서비스 루트: [Web/visi-vital/Web/visi-vital](Web/visi-vital/Web/visi-vital)
+- 실행: `docker compose up -d --build`
+- 상태 확인: `docker compose ps`
+- 접속:
+  - Frontend: http://localhost:3000
+  - Backend Health: http://localhost:5000/api/health
+
+### Notes
+- 본 README는 기존 내용을 변경/삭제하지 않고, 하단에 업데이트만 누적했습니다.
+
 <div align="center">
 
 ### Project Complete!
