@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Yonsei HCI LAB Intern Project - 2026**
+[![클릭하여 PDF 보기](<img width="3840" height="2030" alt="image" src="https://github.com/user-attachments/assets/33076331-cfb7-458a-bf93-a24e0c3e1b83" />)](https://github.com/resourceful-hooni/Yonsei-HCI-LAB-Intern-rPPG-BP-Estimation/blob/main/%EC%B5%9C%EC%A2%85%20%EB%B0%9C%ED%91%9C.pdf)
 
 ---
 
