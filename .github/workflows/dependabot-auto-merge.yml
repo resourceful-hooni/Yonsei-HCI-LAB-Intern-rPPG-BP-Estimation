@@ -19,10 +19,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for safe updates
+      - name: Enable auto-merge for semver updates (patch/minor/major)
         if: >-
           startsWith(steps.metadata.outputs.update-type, 'version-update:semver-patch') ||
-          startsWith(steps.metadata.outputs.update-type, 'version-update:semver-minor')
+          startsWith(steps.metadata.outputs.update-type, 'version-update:semver-minor') ||
+          startsWith(steps.metadata.outputs.update-type, 'version-update:semver-major')
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
