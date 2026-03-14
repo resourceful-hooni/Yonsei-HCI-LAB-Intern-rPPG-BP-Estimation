@@ -1,0 +1,45 @@
+name: Weekly Browserslist DB Update
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  update-browserslist-db:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update Browserslist DB
+        run: npx update-browserslist-db@latest --yes
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(frontend): update browserslist database"
+          title: "chore(frontend): update browserslist database"
+          body: |
+            Automated weekly update of Browserslist database (`caniuse-lite`).
+          branch: "chore/browserslist-db-update"
+          delete-branch: true
+          labels: |
+            dependencies
+            frontend
+          add-paths: |
+            frontend/package-lock.json
+            frontend/package.json
