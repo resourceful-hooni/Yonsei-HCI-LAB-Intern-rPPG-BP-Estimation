@@ -80,16 +80,19 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 python backend/tests/test_signal_pipeline.py
 ```
 
-## 5) 배포 번들
+## 5) 배포 (운영 서버)
 
-다른 PC 배포용 정리 폴더:
-- [deploy_bundle](deploy_bundle)
+라이브: **https://yonseihci.kro.kr/** — Oracle Cloud VM + Docker Compose(backend/frontend/caddy).
 
-포함 내용:
-- backend 소스
-- frontend 소스 + build 결과
-- docs
-- 실행 스크립트/가이드(배포 폴더 내 README 참고)
+가장 쉬운 방법은 **GitHub Actions**입니다:
+- 1‑클릭: GitHub → Actions → **"Deploy (server)"** → *Run workflow*
+- 자동: `main`에 앱 소스(`frontend/src/**`, `backend/**`) 변경 푸시 시 자동 배포
+- 워크플로우: [.github/workflows/deploy.yml](.github/workflows/deploy.yml) · 수동 스크립트: [scripts/deploy.sh](scripts/deploy.sh)
+
+전체 절차·필요 Secrets·롤백·연구 모델 활성화는 **[docs/DEPLOY.md](docs/DEPLOY.md)** 참고.
+
+### 배포 번들 (다른 PC 로컬 실행용)
+- [deploy_bundle](deploy_bundle) — backend/frontend 소스 + build + docs + 실행 스크립트
 
 ## 6) GitHub 백업(권장 절차)
 
@@ -123,6 +126,9 @@ python backend/tests/test_signal_pipeline.py
 	- [.github/workflows/ci-maintenance.yml](.github/workflows/ci-maintenance.yml)
 	- Frontend: `npm install --legacy-peer-deps` + `npm run build` + `npm audit(고위험, prod)`
 	- Backend: `requirements.txt` 해석(dry-run) + `app.py` 문법 점검
+- 운영 서버 배포(수동 1‑클릭 / main 푸시 자동)
+	- [.github/workflows/deploy.yml](.github/workflows/deploy.yml) — SSH 소스 동기화 + `docker compose` 재빌드 + health 체크
+	- 상세: [docs/DEPLOY.md](docs/DEPLOY.md)
 - 브라우저 호환 DB 자동 갱신(PR 생성)
 	- [.github/workflows/browserslist-update.yml](.github/workflows/browserslist-update.yml)
 	- `caniuse-lite`(Browserslist DB) 주간 업데이트
