@@ -27,11 +27,18 @@ const request = async (url, options = {}) => {
   const method = (options.method || 'GET').toUpperCase();
   const retries = options.retries != null ? options.retries : (method === 'GET' ? 2 : 0);
 
+  // Tell the backend which language to localize generated text in (status,
+  // summary, comments, recommendations). Only needed for GET reads.
+  let finalUrl = url;
+  if (method === 'GET') {
+    finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'lang=' + curLang();
+  }
+
   let response;
   let lastNetErr = null;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      response = await fetch(url, {
+      response = await fetch(finalUrl, {
         ...options,
         cache: 'no-store',
         headers: {

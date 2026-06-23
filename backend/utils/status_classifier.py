@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from utils.i18n import status_label as _status_label
+
 
 def _calc_cv(values: list[float]):
     if not values:
@@ -13,7 +15,7 @@ def _calc_cv(values: list[float]):
     return float(np.std(arr) / mean * 100.0)
 
 
-def classify_status(bp_values: list[float], glucose_values: list[float]):
+def classify_status(bp_values: list[float], glucose_values: list[float], lang: str = "ko"):
     bp_cv = _calc_cv(bp_values)
     gl_cv = _calc_cv(glucose_values)
     total_cv = max(bp_cv, gl_cv)
@@ -27,20 +29,16 @@ def classify_status(bp_values: list[float], glucose_values: list[float]):
 
     if total_cv < 10 and in_range:
         level = 1
-        label = "안정적"
     elif total_cv < 15:
         level = 2
-        label = "관심 필요"
     elif total_cv < 20:
         level = 3
-        label = "집중 관리"
     else:
         level = 4
-        label = "관리 강화"
 
     return {
         "status_level": level,
-        "status_label": label,
+        "status_label": _status_label(level, lang),
         "bp_cv": round(bp_cv, 2),
         "glucose_cv": round(gl_cv, 2),
     }

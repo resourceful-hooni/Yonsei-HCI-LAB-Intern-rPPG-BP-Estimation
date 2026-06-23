@@ -8,7 +8,7 @@ import { useLang } from '../contexts/LangContext';
 const SUMMARY_CACHE_KEY = 'visi_vital_summary_cache';
 
 function SummaryPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [daily, setDaily] = useState(null);
   const [trends, setTrends] = useState({ bp_trend: [], glucose_trend: [], trend_percentages: {} });
   const [error, setError] = useState('');
@@ -53,7 +53,8 @@ function SummaryPage() {
       .catch((err) => { if (!cancelled) setError(err.message); })
       .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
-  }, []);
+    // Refetch when language changes so backend-localized text updates.
+  }, [lang]);
 
   if (error) return <div className="page"><p>{error}</p></div>;
   if (!loaded) return <div className="page"><p>{t('sp_loading')}</p></div>;
