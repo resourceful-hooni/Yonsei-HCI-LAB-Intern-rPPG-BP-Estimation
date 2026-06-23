@@ -5,30 +5,54 @@ import VitalCard from '../components/Summary/VitalCard';
 import { fetchDailySummary, fetchTrends } from '../services/apiService';
 import { useLang } from '../contexts/LangContext';
 
+const SUMMARY_CACHE_KEY = 'visi_vital_summary_cache';
+
 function SummaryPage() {
   const { t } = useLang();
   const [daily, setDaily] = useState(null);
   const [trends, setTrends] = useState({ bp_trend: [], glucose_trend: [], trend_percentages: {} });
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [stale, setStale] = useState(false);
   const navigate = useNavigate();
 
 
   useEffect(() => {
+    let cancelled = false;
     Promise.allSettled([fetchDailySummary('demo-user'), fetchTrends('demo-user', 7)])
       .then(([dailyRes, trendRes]) => {
-        if (dailyRes.status === 'fulfilled') {
+        if (cancelled) return;
+
+        const trendData = trendRes.status === 'fulfilled' ? (trendRes.value.data || {}) : {};
+        if (trendRes.status === 'fulfilled') setTrends(trendData);
+
+        if (dailyRes.status === 'fulfilled' && dailyRes.value?.data) {
           setDaily(dailyRes.value.data);
-        }
-        if (trendRes.status === 'fulfilled') {
-          setTrends(trendRes.value.data || {});
-        }
-        if (dailyRes.status === 'rejected') {
-          setError(dailyRes.reason?.message || t('sp_loading'));
+          // Cache the last good summary so it survives a later offline reload.
+          try {
+            localStorage.setItem(
+              SUMMARY_CACHE_KEY,
+              JSON.stringify({ daily: dailyRes.value.data, trends: trendData })
+            );
+          } catch (_) { /* storage full / unavailable — ignore */ }
+        } else {
+          // Network/daily failed: fall back to the cached summary if we have one.
+          let cached = null;
+          try {
+            cached = JSON.parse(localStorage.getItem(SUMMARY_CACHE_KEY) || 'null');
+          } catch (_) { cached = null; }
+          if (cached?.daily) {
+            setDaily(cached.daily);
+            setTrends(cached.trends || {});
+            setStale(true);
+          } else {
+            setError(dailyRes.reason?.message || t('sp_loading'));
+          }
         }
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoaded(true));
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
   }, []);
 
   if (error) return <div className="page"><p>{error}</p></div>;
@@ -186,6 +210,9 @@ function SummaryPage() {
     <div className="page">
       <h1>{t('sp_title')}</h1>
       <p className="subtitle">{t('sp_subtitle')}</p>
+      {stale && (
+        <div className="quality-warning" role="status">{t('sp_offline_cached')}</div>
+      )}
       <div className="status-badge level">{localizedStatusLabel}</div>
       {(() => {
         const bpTrend = trends.trend_percentages?.bp || 0;

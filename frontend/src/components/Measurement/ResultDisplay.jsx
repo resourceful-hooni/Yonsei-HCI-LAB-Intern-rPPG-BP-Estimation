@@ -40,18 +40,28 @@ function ResultDisplay({ result, onRetry }) {
       <p>{t('res_confidence')}: {confidencePercent}%</p>
       <p className="subtitle">{t('res_conf_sub')}</p>
 
+      {result.flags?.low_quality && (
+        <p className="quality-warning" role="alert" style={{ marginTop: 8 }}>
+          {t('res_low_quality')}
+        </p>
+      )}
+
       <p className="subtitle">
         {t('res_bp_source')}: {result.bp_source === 'research_model' ? t('res_bp_src_main') : t('res_bp_src_fallback')}
       </p>
-      <div style={{ marginTop: 8, marginBottom: 8 }}>
-        <img
-          src="/images/ms_tcn_predictions.png"
-          alt={t('res_img_alt')}
-          style={{ width: '100%', borderRadius: 10, border: '1px solid #e2e8f0' }}
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        />
-        <small style={{ display: 'block', textAlign: 'center', marginTop: 4, opacity: 0.6 }}>{t('res_img_caption')}</small>
-      </div>
+      {/* The MS-TCN training chart is only meaningful when that model is actually
+          active; showing it in empirical-fallback mode would misrepresent the source. */}
+      {result.bp_source === 'research_model' && (
+        <div style={{ marginTop: 8, marginBottom: 8 }}>
+          <img
+            src="/images/ms_tcn_predictions.png"
+            alt={t('res_img_alt')}
+            style={{ width: '100%', borderRadius: 10, border: '1px solid #e2e8f0' }}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+          <small style={{ display: 'block', textAlign: 'center', marginTop: 4, opacity: 0.6 }}>{t('res_img_caption')}</small>
+        </div>
+      )}
       <p className="subtitle">{t('res_glucose_source')}</p>
 
       <div className="card" style={{ marginTop: 12, background: '#fafbff' }}>

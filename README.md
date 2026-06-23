@@ -50,11 +50,35 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 주요 값:
 - `DEMO_USER_ID=demo-user` (고정 사용자)
 - `API_KEY` (프론트 요청 키와 동일해야 함)
-- `RESEARCH_BP_MODEL_PATH` (MS-TCN 가중치 파일 경로)
-- `RESEARCH_SCALER_INFO_PATH`
+- `RESEARCH_BP_MODEL_PATH` (MS-TCN 가중치 `.h5` 파일 경로)
+- `RESEARCH_SCALER_INFO_PATH` (학습 시 사용한 스케일러 통계 파일)
+- `RESEARCH_MODEL_TARGET_LEN=875` (모델 입력 길이, 샘플 수)
+- `RESEARCH_MODEL_FS` (모델 **학습 샘플링레이트(Hz)**. >0이면 rPPG 신호를 이 레이트로 리샘플 후 `TARGET_LEN` 윈도우를 취해 실제 주파수 성분을 보존합니다. 모르면 0으로 두면 전체 캡처를 `TARGET_LEN` 샘플로 늘리는 레거시 방식 사용)
 - `USE_DUMMY_GLUCOSE=True` (현재 혈당은 참고용 더미 모드)
 
 배포 시 실제 경로에 맞게 수정하세요.
+
+### 연구 BP 모델(MS-TCN) 가중치 배치
+
+이 저장소에는 모델 가중치가 포함되어 있지 않습니다. **가중치가 없으면 혈압은
+경험식(심박/HRV 기반) 폴백으로 추정**되며, 결과 화면의 "혈압 추정 소스"에
+`경험식 추정 — 연구 모델 미적용`으로 표시됩니다. 연구 모델을 사용하려면:
+
+1. MS-TCN 가중치(`ms_tcn_attention_best_weights.h5` 등)와 커스텀 레이어 모듈
+	(`models/ms_tcn_attention_model.py`)을 확보합니다.
+2. `.env`에 `RESEARCH_BP_MODEL_PATH`로 가중치 경로를 지정하거나, 백엔드 상위에
+	`Yonsei-HCI-LAB-Intern-rPPG-BP-Estimation/` 디렉터리 구조로 배치합니다.
+3. 학습 스케일러 통계를 `RESEARCH_SCALER_INFO_PATH`로 지정하고, 학습 샘플링레이트를
+	`RESEARCH_MODEL_FS`로 설정합니다(주파수 정합 리샘플 활성화).
+
+### 신호 파이프라인 검증
+
+임상 정확도는 그라운드트루스 없이 검증할 수 없지만, 신호처리 정합성은 합성 신호로
+검증할 수 있습니다(알려진 심박 복원 오차, SNR, NaN 안전성, POS vs CHROM 회귀):
+
+```
+python backend/tests/test_signal_pipeline.py
+```
 
 ## 5) 배포 번들
 

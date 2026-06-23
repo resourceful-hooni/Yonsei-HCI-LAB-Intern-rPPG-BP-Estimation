@@ -47,6 +47,7 @@ def _get_bp_estimator():
             model_path=current_app.config.get("RESEARCH_BP_MODEL_PATH") or None,
             scaler_info_path=current_app.config.get("RESEARCH_SCALER_INFO_PATH") or None,
             target_len=int(current_app.config.get("RESEARCH_MODEL_TARGET_LEN", 875)),
+            model_fs=float(current_app.config.get("RESEARCH_MODEL_FS", 0) or 0),
         )
     return bp_estimator
 
@@ -92,6 +93,9 @@ def process_measurement():
     measurement_id = payload.get("measurement_id")
     frames = payload.get("frames", [])
     frame_rate = float(payload.get("frame_rate", 30))
+    # Optional per-frame capture timestamps (seconds) so the backend can use the
+    # real (jittery) sampling rate instead of the nominal frame_rate.
+    frame_timestamps = payload.get("frame_timestamps")
     quality_metrics = _normalize_quality_metrics(payload.get("quality_metrics"))
 
     if not measurement_id or measurement_id not in SESSIONS:
@@ -101,14 +105,28 @@ def process_measurement():
         return jsonify({"success": False, "error": "frames array is required"}), 400
 
     try:
-        decoded_frames = [img for img in (_decode_base64_image(f) for f in frames) if img is not None]
+        # Decode frames, keeping any supplied timestamps aligned to the frames
+        # that actually decoded (a failed decode must not shift the time axis).
+        has_ts = isinstance(frame_timestamps, list) and len(frame_timestamps) == len(frames)
+        decoded_frames = []
+        decoded_ts = []
+        for i, f in enumerate(frames):
+            img = _decode_base64_image(f)
+            if img is not None:
+                decoded_frames.append(img)
+                if has_ts:
+                    decoded_ts.append(frame_timestamps[i])
         if len(decoded_frames) < 30:
             return jsonify({"success": False, "error": "Not enough valid frames"}), 400
 
-        ppg_signal, quality = rppg_estimator.extract_signal(decoded_frames, frame_rate)
-        features = rppg_estimator.extract_features(ppg_signal, frame_rate, quality=quality)
+        sig = rppg_estimator.extract_signal(
+            decoded_frames, frame_rate, timestamps=(decoded_ts if has_ts else None)
+        )
+        ppg_signal = sig["ppg"]
+        fs_used = sig["fs"]
+        features = rppg_estimator.extract_features(ppg_signal, fs_used, quality=sig["frame_ratio"])
 
-        bp_result = _get_bp_estimator().estimate(features, ppg_signal=ppg_signal, frame_rate=frame_rate)
+        bp_result = _get_bp_estimator().estimate(features, ppg_signal=ppg_signal, frame_rate=fs_used)
         gl_result = _get_glucose_estimator().estimate(features)
 
         confidence = round((bp_result["confidence"] + gl_result["confidence"]) / 2.0, 3)
@@ -147,6 +165,17 @@ def process_measurement():
                     "bp_source": bp_result.get("source", "unknown"),
                     "glucose_source": gl_result.get("source", "unknown"),
                     "quality_metrics": quality_metrics,
+                    # Additive signal diagnostics (older clients ignore these).
+                    "signal_quality": features.get("signal_quality"),
+                    "snr_db": round(float(features.get("snr_db", 0.0)), 2),
+                    "heart_rate": round(float(features.get("heart_rate", 0.0)), 1),
+                    "effective_fps": round(float(fs_used), 2),
+                    "rppg_method": sig.get("method"),
+                    "flags": {
+                        "low_quality": bool(features.get("low_quality", False)),
+                        "hr_ok": bool(features.get("hr_ok", True)),
+                        "hrv_available": bool(features.get("hrv_available", False)),
+                    },
                 },
             }
         )

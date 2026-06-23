@@ -25,3 +25,8 @@ class Config:
     RESEARCH_BP_MODEL_PATH = os.getenv("RESEARCH_BP_MODEL_PATH", "")
     RESEARCH_SCALER_INFO_PATH = os.getenv("RESEARCH_SCALER_INFO_PATH", "")
     RESEARCH_MODEL_TARGET_LEN = int(os.getenv("RESEARCH_MODEL_TARGET_LEN", "875"))
+    # Sampling rate (Hz) the research model was trained on. When > 0, the rPPG
+    # signal is resampled to this rate and a TARGET_LEN window is taken (centered
+    # crop / reflect-pad) so real frequency content is preserved. Leave 0 to use
+    # the legacy behavior (stretch the whole capture to TARGET_LEN samples).
+    RESEARCH_MODEL_FS = float(os.getenv("RESEARCH_MODEL_FS", "0"))

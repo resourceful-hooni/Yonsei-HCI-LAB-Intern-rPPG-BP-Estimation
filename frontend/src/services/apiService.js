@@ -1,19 +1,37 @@
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
 const API_KEY = process.env.REACT_APP_API_KEY || 'your-frontend-api-key';
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const request = async (url, options = {}) => {
+  // Retry transient network failures for safe (GET) requests only — never retry
+  // POSTs automatically (they create/mutate state). Pass { retries } to override.
+  const method = (options.method || 'GET').toUpperCase();
+  const retries = options.retries != null ? options.retries : (method === 'GET' ? 2 : 0);
+
   let response;
-  try {
-    response = await fetch(url, {
-      ...options,
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY,
-        ...(options.headers || {})
+  let lastNetErr = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      response = await fetch(url, {
+        ...options,
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY,
+          ...(options.headers || {})
+        }
+      });
+      lastNetErr = null;
+      break;
+    } catch (err) {
+      lastNetErr = err;
+      if (attempt < retries) {
+        await sleep(400 * (attempt + 1));
       }
-    });
-  } catch (err) {
+    }
+  }
+  if (lastNetErr) {
     throw new Error('서버에 연결하지 못했습니다. 백엔드 서버(5000)가 실행 중인지 확인해주세요.');
   }
 
@@ -35,13 +53,16 @@ export const startMeasurement = async (userId) => {
   });
 };
 
-export const processMeasurement = async (measurementId, frames, frameRate, qualityMetrics) => {
+export const processMeasurement = async (measurementId, frames, frameRate, qualityMetrics, frameTimestamps) => {
   return request(`${API_BASE_URL}/measurement/process`, {
     method: 'POST',
     body: JSON.stringify({
       measurement_id: measurementId,
       frames,
       frame_rate: frameRate,
+      // Real per-frame capture times (seconds) so the backend can use the true
+      // sampling rate instead of the nominal frameRate (setInterval is jittery).
+      frame_timestamps: Array.isArray(frameTimestamps) ? frameTimestamps : null,
       quality_metrics: qualityMetrics || null
     })
   });
