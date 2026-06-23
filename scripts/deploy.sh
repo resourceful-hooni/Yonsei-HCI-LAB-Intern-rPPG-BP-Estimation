@@ -60,7 +60,11 @@ docker compose up -d
 docker ps --format '{{.Names}}\t{{.Status}}'
 REMOTE
 
-echo ">> health"
-sleep 5
-curl -fsS "$HEALTHCHECK_URL" || { echo "health check failed"; exit 1; }
-echo; echo ">> done"
+echo ">> health (backend loads TensorFlow on boot — allow ~90s)"
+for i in $(seq 1 18); do
+  if curl -fsS --max-time 10 "$HEALTHCHECK_URL" >/dev/null 2>&1; then
+    echo "   health OK"; echo ">> done"; exit 0
+  fi
+  echo "   waiting for backend... ($i/18)"; sleep 5
+done
+echo "health check did not pass within ~90s — check: docker logs visivital-backend"; exit 1

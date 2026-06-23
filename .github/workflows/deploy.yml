@@ -81,8 +81,9 @@ jobs:
           URL: ${{ secrets.HEALTHCHECK_URL }}
         run: |
           URL="${URL:-https://yonseihci.kro.kr/api/health}"
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS "$URL"; then echo; echo "health OK"; exit 0; fi
-            echo "waiting for service... ($i)"; sleep 5
+          # Backend loads TensorFlow on boot (~60s) — be patient (~90s).
+          for i in $(seq 1 18); do
+            if curl -fsS --max-time 10 "$URL"; then echo; echo "health OK"; exit 0; fi
+            echo "waiting for service... ($i/18)"; sleep 5
           done
           echo "health check failed"; exit 1
