@@ -97,6 +97,10 @@ export const fetchDailySummary = async (userId) => {
   return request(`${API_BASE_URL}/summary/daily?user_id=${encodeURIComponent(userId)}`);
 };
 
+export const fetchHistory = async (limit = 10) => {
+  return request(`${API_BASE_URL}/measurement/history?limit=${limit}&_t=${Date.now()}`);
+};
+
 export const fetchTrends = async (userId, days = 7) => {
   return request(`${API_BASE_URL}/summary/trends?user_id=${encodeURIComponent(userId)}&days=${days}&_t=${Date.now()}`);
 };

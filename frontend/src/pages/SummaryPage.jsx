@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import VitalCard from '../components/Summary/VitalCard';
-import { fetchDailySummary, fetchTrends } from '../services/apiService';
+import { fetchDailySummary, fetchTrends, fetchHistory } from '../services/apiService';
 import { useLang } from '../contexts/LangContext';
 
 const SUMMARY_CACHE_KEY = 'visi_vital_summary_cache';
@@ -14,14 +14,19 @@ function SummaryPage() {
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [stale, setStale] = useState(false);
+  const [history, setHistory] = useState([]);
   const navigate = useNavigate();
 
 
   useEffect(() => {
     let cancelled = false;
-    Promise.allSettled([fetchDailySummary('demo-user'), fetchTrends('demo-user', 7)])
-      .then(([dailyRes, trendRes]) => {
+    Promise.allSettled([fetchDailySummary('demo-user'), fetchTrends('demo-user', 7), fetchHistory(10)])
+      .then(([dailyRes, trendRes, histRes]) => {
         if (cancelled) return;
+
+        if (histRes && histRes.status === 'fulfilled' && Array.isArray(histRes.value?.data)) {
+          setHistory(histRes.value.data);
+        }
 
         const trendData = trendRes.status === 'fulfilled' ? (trendRes.value.data || {}) : {};
         if (trendRes.status === 'fulfilled') setTrends(trendData);
@@ -207,6 +212,22 @@ function SummaryPage() {
 
   const localizedStatusLabel = localizeStatusLabel(daily?.status?.status_label);
 
+  const formatHistoryTime = (ts) => {
+    const raw = String(ts || '').trim();
+    if (!raw) return '';
+    let iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    if (!/[Zz]|[+-]\d{2}:?\d{2}$/.test(iso)) iso += 'Z'; // server stores UTC
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return raw.slice(5, 16);
+    try {
+      return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'ko-KR', {
+        timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      }).format(d);
+    } catch (_) {
+      return raw.slice(5, 16);
+    }
+  };
+
   return (
     <div className="page">
       <h1>{t('sp_title')}</h1>
@@ -367,6 +388,25 @@ function SummaryPage() {
           ))}
         </div>
       </div>
+
+      {history.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 10 }}>{t('sp_history_title')}</h3>
+          <div className="history-list">
+            {history.map((h) => (
+              <div key={h.measurement_id} className="history-row">
+                <span className="history-date">{formatHistoryTime(h.measurement_time)}</span>
+                <span className="history-metrics">
+                  <b>{h.bp_systolic}/{h.bp_diastolic}</b>
+                  <span className="history-sep">·</span>
+                  <b>{h.blood_sugar}</b>
+                </span>
+                <span className="history-conf">{Math.round((h.confidence || 0) * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <button onClick={() => navigate('/lifestyle')}>{t('sp_btn_lifestyle')}</button>
     </div>

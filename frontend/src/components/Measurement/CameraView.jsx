@@ -72,6 +72,7 @@ function CameraView({ userId, onResult }) {
   const [permissionError, setPermissionError] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isMeasuring, setIsMeasuring] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [faceMeshEnabled, setFaceMeshEnabled] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -441,9 +442,14 @@ function CameraView({ userId, onResult }) {
             return;
           }
 
+          // Server-side analysis (decode + rPPG + model) takes a few seconds;
+          // show a dedicated processing overlay so 100% -> result feels intentional.
+          setIsProcessing(true);
           const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics, frameTimestamps);
+          if (navigator.vibrate) { try { navigator.vibrate([18, 40, 18]); } catch (_) { /* ignore */ } }
           onResult(res.data);
           setMessage('cam_msg_after');
+          setIsProcessing(false);
           setIsMeasuring(false);
         }
       }, Math.round(1000 / FPS));
@@ -453,6 +459,7 @@ function CameraView({ userId, onResult }) {
       } else {
         setMessage(err.message || 'cam_msg_error');
       }
+      setIsProcessing(false);
       setIsMeasuring(false);
     }
   };
@@ -606,6 +613,13 @@ function CameraView({ userId, onResult }) {
           <div className="camera-init-overlay">
             <div className="skeleton" style={{ width: 120, height: 14, borderRadius: 7, margin: '0 auto 8px' }} />
             <small style={{ color: '#e0e7ff', opacity: 0.8 }}>{t('cam_init_overlay')}</small>
+          </div>
+        )}
+        {isProcessing && (
+          <div className="processing-overlay" role="status" aria-live="polite">
+            <div className="processing-orb" />
+            <div className="processing-title">{t('cam_processing')}</div>
+            <div className="processing-sub">{t('cam_processing_sub')}</div>
           </div>
         )}
       </div>

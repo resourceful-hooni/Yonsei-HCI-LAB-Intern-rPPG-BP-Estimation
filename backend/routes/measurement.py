@@ -193,3 +193,30 @@ def get_measurement_result(result_id: int):
     if not result:
         return jsonify({"success": False, "error": "Result not found"}), 404
     return jsonify({"success": True, "data": result})
+
+
+@measurement_bp.route("/history", methods=["GET"])
+@require_api_key
+@rate_limit
+def get_history():
+    """Recent measurements, most-recent-first, for the history list."""
+    user_id = current_app.config.get("DEMO_USER_ID", "demo-user")
+    try:
+        limit = max(1, min(int(request.args.get("limit", 10)), 50))
+    except Exception:
+        limit = 10
+
+    rows = list(current_app.db.get_recent_measurements(user_id, days=365))
+    rows = rows[-limit:][::-1]  # newest first
+    data = [
+        {
+            "measurement_id": r["measurement_id"],
+            "measurement_time": r["measurement_time"],
+            "bp_systolic": r["bp_systolic"],
+            "bp_diastolic": r["bp_diastolic"],
+            "blood_sugar": r["blood_sugar"],
+            "confidence": r["confidence"],
+        }
+        for r in rows
+    ]
+    return jsonify({"success": True, "data": data})
