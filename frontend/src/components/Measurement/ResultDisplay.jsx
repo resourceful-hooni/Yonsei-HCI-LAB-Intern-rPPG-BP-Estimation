@@ -6,6 +6,8 @@ function ResultDisplay({ result, onRetry }) {
   const { t } = useLang();
 
   const confidencePercent = Math.round((result.confidence || 0) * 100);
+  const heartRate = Math.round(Number(result.heart_rate || 0));
+  const signalQuality = Math.round(Number(result.signal_quality || 0) * 100);
 
   const getGlucoseStatus = (value) => {
     if (value < 90) {
@@ -36,6 +38,31 @@ function ResultDisplay({ result, onRetry }) {
       <p className="bp-sublabels"><span>{t('res_bp_systolic')}</span><span>/</span><span>{t('res_bp_diastolic')}</span></p>
       <p className="subtitle" style={{ marginBottom: 6 }}>{t('res_glucose_label')}</p>
       <div className="result-number">{result.blood_sugar} <small>{t('res_glucose_unit')}</small></div>
+
+      {/* Measurement metrics from the improved rPPG pipeline — visible at a glance. */}
+      {(heartRate > 0 || signalQuality > 0) && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 14, marginBottom: 4 }}>
+          {heartRate > 0 && (
+            <div style={{ flex: 1, background: '#f7f8fc', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
+              <div style={{ opacity: 0.6, fontSize: '0.78rem' }}>{t('res_hr_label')}</div>
+              <div style={{ fontSize: '1.45rem', fontWeight: 700, lineHeight: 1.2 }}>
+                {heartRate} <small style={{ fontSize: '0.78rem', fontWeight: 500 }}>{t('res_hr_unit')}</small>
+              </div>
+            </div>
+          )}
+          {signalQuality > 0 && (
+            <div style={{ flex: 1, background: '#f7f8fc', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
+              <div style={{ opacity: 0.6, fontSize: '0.78rem' }}>{t('res_signal_quality')}</div>
+              <div style={{ fontSize: '1.45rem', fontWeight: 700, lineHeight: 1.2 }}>
+                {signalQuality}<small style={{ fontSize: '0.9rem', fontWeight: 500 }}>%</small>
+              </div>
+              <div style={{ height: 6, background: '#e9edf5', borderRadius: 6, marginTop: 6, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${signalQuality}%`, background: 'linear-gradient(90deg, var(--primary), var(--secondary))' }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <p>{t('res_confidence')}: {confidencePercent}%</p>
       <p className="subtitle">{t('res_conf_sub')}</p>
