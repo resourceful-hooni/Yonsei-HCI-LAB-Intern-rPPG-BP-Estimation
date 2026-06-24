@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import MetaTags from './MetaTags';
 import { useLang } from './contexts/LangContext';
+import { useTheme } from './contexts/ThemeContext';
+import Onboarding from './components/Onboarding';
 import MeasurementPage from './pages/MeasurementPage';
 import SummaryPage from './pages/SummaryPage';
 import LifestyleGuidePage from './pages/LifestyleGuidePage';
@@ -85,6 +87,7 @@ function BottomNav() {
 function App() {
   useButtonRipple();
   const { t, toggle } = useLang();
+  const { theme, toggle: toggleTheme } = useTheme();
 
   return (
     <>
@@ -103,13 +106,23 @@ function App() {
           <NavLink to="/summary">{t('nav_summary')}</NavLink>
           <NavLink to="/lifestyle">{t('nav_lifestyle')}</NavLink>
         </nav>
-        <button
-          className="lang-toggle"
-          onClick={toggle}
-          aria-label={t('app_lang_aria')}
-        >
-          {t('lang_toggle')}
-        </button>
+        <div className="topbar-actions">
+          <button
+            className="icon-toggle"
+            onClick={toggleTheme}
+            aria-label={t('app_theme_aria')}
+            title={t('app_theme_aria')}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button
+            className="lang-toggle"
+            onClick={toggle}
+            aria-label={t('app_lang_aria')}
+          >
+            {t('lang_toggle')}
+          </button>
+        </div>
       </header>
 
       <Routes>
@@ -120,6 +133,7 @@ function App() {
       </Routes>
 
       <BottomNav />
+      <Onboarding />
 
       <footer className="app-footer">
         <small>

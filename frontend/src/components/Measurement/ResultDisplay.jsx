@@ -63,7 +63,7 @@ function ResultDisplay({ result, onRetry }) {
       {(heartRate > 0 || signalQuality > 0) && (
         <div style={{ display: 'flex', gap: 10, marginTop: 14, marginBottom: 4 }}>
           {heartRate > 0 && (
-            <div style={{ flex: 1, background: '#f7f8fc', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
+            <div style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ opacity: 0.6, fontSize: '0.78rem' }}>{t('res_hr_label')}</div>
               <div style={{ fontSize: '1.45rem', fontWeight: 700, lineHeight: 1.2 }}>
                 {hr} <small style={{ fontSize: '0.78rem', fontWeight: 500 }}>{t('res_hr_unit')}</small>
@@ -71,12 +71,12 @@ function ResultDisplay({ result, onRetry }) {
             </div>
           )}
           {signalQuality > 0 && (
-            <div style={{ flex: 1, background: '#f7f8fc', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
+            <div style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
               <div style={{ opacity: 0.6, fontSize: '0.78rem' }}>{t('res_signal_quality')}</div>
               <div style={{ fontSize: '1.45rem', fontWeight: 700, lineHeight: 1.2 }}>
                 {signalQuality}<small style={{ fontSize: '0.9rem', fontWeight: 500 }}>%</small>
               </div>
-              <div style={{ height: 6, background: '#e9edf5', borderRadius: 6, marginTop: 6, overflow: 'hidden' }}>
+              <div style={{ height: 6, background: 'var(--border)', borderRadius: 6, marginTop: 6, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${signalQuality}%`, background: 'linear-gradient(90deg, var(--primary), var(--secondary))' }} />
               </div>
             </div>
@@ -107,7 +107,7 @@ function ResultDisplay({ result, onRetry }) {
       </div>
       <p className="subtitle">{t('res_glucose_source')}</p>
 
-      <div className="card" style={{ marginTop: 12, background: '#fafbff' }}>
+      <div className="card" style={{ marginTop: 12, background: 'var(--surface-2)' }}>
         <h3 style={{ marginTop: 0 }}>{t('res_glucose_title')}</h3>
         <p><strong>{glucoseStatus.label}</strong></p>
         <p style={{ marginBottom: 0 }}>{glucoseStatus.description}</p>

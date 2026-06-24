@@ -19,6 +19,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/src/**'
+      - 'frontend/public/**'
       - 'backend/models/**'
       - 'backend/routes/**'
       - 'backend/utils/**'
@@ -54,6 +55,9 @@ jobs:
           # Frontend React source (the container runs `npm run build` on rebuild).
           rsync -az --exclude '__pycache__' -e "$SSH" \
             frontend/src/ "$USER@$HOST:$APP/frontend/src/"
+          # PWA assets (manifest, index.html, service worker, icons).
+          rsync -az -e "$SSH" \
+            frontend/public/ "$USER@$HOST:$APP/frontend/public/"
           # Keep dependency manifests in sync (drift here breaks the build, e.g.
           # a missing react-helmet that the source imports).
           rsync -az -e "$SSH" \

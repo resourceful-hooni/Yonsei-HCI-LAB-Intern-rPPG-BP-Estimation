@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import VitalCard from '../components/Summary/VitalCard';
-import { fetchDailySummary, fetchTrends, fetchHistory } from '../services/apiService';
+import { fetchDailySummary, fetchTrends, fetchHistory, deleteMeasurement } from '../services/apiService';
 import { useLang } from '../contexts/LangContext';
 
 const SUMMARY_CACHE_KEY = 'visi_vital_summary_cache';
@@ -15,6 +15,8 @@ function SummaryPage() {
   const [loaded, setLoaded] = useState(false);
   const [stale, setStale] = useState(false);
   const [history, setHistory] = useState([]);
+  const [trendDays, setTrendDays] = useState(7);
+  const [chartTab, setChartTab] = useState('combined'); // combined | bp | glucose
   const navigate = useNavigate();
 
 
@@ -60,6 +62,21 @@ function SummaryPage() {
     return () => { cancelled = true; };
     // Refetch when language changes so backend-localized text updates.
   }, [lang]);
+
+  // Refetch trends when the selected period (7/14/30) changes.
+  useEffect(() => {
+    let cancelled = false;
+    fetchTrends('demo-user', trendDays)
+      .then((r) => { if (!cancelled && r?.data) setTrends(r.data); })
+      .catch(() => { /* keep existing trends */ });
+    return () => { cancelled = true; };
+  }, [trendDays, lang]);
+
+  const deleteHistoryItem = async (id) => {
+    if (typeof window !== 'undefined' && !window.confirm(t('sp_history_delete_confirm'))) return;
+    setHistory((prev) => prev.filter((h) => h.measurement_id !== id)); // optimistic
+    try { await deleteMeasurement(id); } catch (_) { /* best-effort */ }
+  };
 
   if (error) return <div className="page"><p>{error}</p></div>;
   if (!loaded) return <div className="page"><p>{t('sp_loading')}</p></div>;
@@ -317,6 +334,27 @@ function SummaryPage() {
 
         <div className="card">
           <h3>{t('sp_chart_title')}</h3>
+          {/* Period selector (7/14/30 days) + metric tabs */}
+          <div className="seg-controls">
+            <div className="seg" role="tablist" aria-label={t('sp_period_aria')}>
+              {[7, 14, 30].map((d) => (
+                <button
+                  key={d}
+                  className={`seg-btn${trendDays === d ? ' active' : ''}`}
+                  onClick={() => setTrendDays(d)}
+                >{d}{t('sp_days_suffix')}</button>
+              ))}
+            </div>
+            <div className="seg" role="tablist" aria-label={t('sp_metric_aria')}>
+              {[['combined', t('sp_tab_combined')], ['bp', t('sp_bp_label')], ['glucose', t('sp_glucose_label')]].map(([key, label]) => (
+                <button
+                  key={key}
+                  className={`seg-btn${chartTab === key ? ' active' : ''}`}
+                  onClick={() => setChartTab(key)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
           <div className="row between">
             <div className="row gap">
               <span className={(trends.trend_percentages?.bp || 0) >= 0 ? 'trend up' : 'trend down'}>
@@ -362,8 +400,12 @@ function SummaryPage() {
               <Legend />
               <ReferenceLine yAxisId="left" y={120} stroke="#5C7CFA" strokeOpacity={0.6} strokeDasharray="4 3" label={{ value: t('sp_ref_bp_normal'), position: 'insideTopLeft', fontSize: 9, fill: '#5C7CFA' }} />
               <ReferenceLine yAxisId="right" y={110} stroke="#9775FA" strokeOpacity={0.6} strokeDasharray="4 3" label={{ value: t('sp_ref_gl_caution'), position: 'insideTopRight', fontSize: 9, fill: '#9775FA' }} />
-              <Line yAxisId="left" type="monotone" dataKey="bp" name={t('sp_bp_label')} stroke="#5C7CFA" strokeWidth={2} dot={{ r: 2 }} />
-              <Line yAxisId="right" type="monotone" dataKey="glucose" name={t('sp_glucose_label')} stroke="#9775FA" strokeWidth={2} dot={{ r: 2 }} />
+              {chartTab !== 'glucose' && (
+                <Line yAxisId="left" type="monotone" dataKey="bp" name={t('sp_bp_label')} stroke="#5C7CFA" strokeWidth={2} dot={{ r: 2 }} />
+              )}
+              {chartTab !== 'bp' && (
+                <Line yAxisId="right" type="monotone" dataKey="glucose" name={t('sp_glucose_label')} stroke="#9775FA" strokeWidth={2} dot={{ r: 2 }} />
+              )}
             </LineChart>
           </ResponsiveContainer>
           <small>{t('sp_latest_time')}: {latestTimeLabel}</small>
@@ -402,6 +444,12 @@ function SummaryPage() {
                   <b>{h.blood_sugar}</b>
                 </span>
                 <span className="history-conf">{Math.round((h.confidence || 0) * 100)}%</span>
+                <button
+                  className="history-del"
+                  aria-label={t('sp_history_delete')}
+                  title={t('sp_history_delete')}
+                  onClick={() => deleteHistoryItem(h.measurement_id)}
+                >✕</button>
               </div>
             ))}
           </div>

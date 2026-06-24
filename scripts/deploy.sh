@@ -25,6 +25,8 @@ echo ">> staging app source"
 STAGE="$(mktemp -d)"; trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/frontend" "$STAGE/backend"
 cp -r "$ROOT/frontend/src" "$STAGE/frontend/src"
+# public/ holds the PWA manifest, index.html, service worker and icons.
+cp -r "$ROOT/frontend/public" "$STAGE/frontend/public"
 # package.json/lock are synced too so dependencies (e.g. react-helmet) stay in
 # sync with the source — drift here is what breaks the in-container build.
 cp "$ROOT/frontend/package.json" "$STAGE/frontend/package.json"
@@ -44,7 +46,7 @@ set -euo pipefail
 cd "$APP"
 TS=$(date +%Y%m%d_%H%M%S)
 echo "   backup -> /tmp/vv_backup_$TS.tgz"
-tar -czf "/tmp/vv_backup_$TS.tgz" frontend/src frontend/package.json frontend/Dockerfile backend
+tar -czf "/tmp/vv_backup_$TS.tgz" frontend/src frontend/public frontend/package.json frontend/Dockerfile backend
 tar -xzf /tmp/vv_deploy/payload.tgz -C /tmp/vv_deploy
 cp -r /tmp/vv_deploy/frontend/. frontend/
 cp -r /tmp/vv_deploy/backend/. backend/

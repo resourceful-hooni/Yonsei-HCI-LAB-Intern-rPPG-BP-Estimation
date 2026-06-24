@@ -101,6 +101,10 @@ export const fetchHistory = async (limit = 10) => {
   return request(`${API_BASE_URL}/measurement/history?limit=${limit}&_t=${Date.now()}`);
 };
 
+export const deleteMeasurement = async (id) => {
+  return request(`${API_BASE_URL}/measurement/${id}`, { method: 'DELETE' });
+};
+
 export const fetchTrends = async (userId, days = 7) => {
   return request(`${API_BASE_URL}/summary/trends?user_id=${encodeURIComponent(userId)}&days=${days}&_t=${Date.now()}`);
 };

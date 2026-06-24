@@ -1,9 +1,19 @@
 {
   "short_name": "VisiVital",
-  "name": "VisiVital rPPG App",
-  "icons": [],
-  "start_url": ".",
+  "name": "VisiVital — rPPG Health",
+  "description": "Contactless rPPG-based health monitoring (reference blood pressure / glucose).",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "theme_color": "#5C7CFA",
   "background_color": "#f7f8fc"
 }

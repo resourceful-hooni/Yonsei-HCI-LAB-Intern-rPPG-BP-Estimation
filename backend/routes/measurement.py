@@ -220,3 +220,14 @@ def get_history():
         for r in rows
     ]
     return jsonify({"success": True, "data": data})
+
+
+@measurement_bp.route("/<int:result_id>", methods=["DELETE"])
+@require_api_key
+@rate_limit
+def delete_measurement_route(result_id: int):
+    user_id = current_app.config.get("DEMO_USER_ID", "demo-user")
+    deleted = current_app.db.delete_measurement(user_id, result_id)
+    if not deleted:
+        return jsonify({"success": False, "error": "Not found"}), 404
+    return jsonify({"success": True, "data": {"deleted": result_id}})
