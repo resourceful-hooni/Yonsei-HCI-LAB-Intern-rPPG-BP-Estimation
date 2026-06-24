@@ -2,34 +2,81 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import VitalCard from '../components/Summary/VitalCard';
-import { fetchDailySummary, fetchTrends } from '../services/apiService';
+import { fetchDailySummary, fetchTrends, fetchHistory, deleteMeasurement } from '../services/apiService';
 import { useLang } from '../contexts/LangContext';
 
+const SUMMARY_CACHE_KEY = 'visi_vital_summary_cache';
+
 function SummaryPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [daily, setDaily] = useState(null);
   const [trends, setTrends] = useState({ bp_trend: [], glucose_trend: [], trend_percentages: {} });
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [trendDays, setTrendDays] = useState(7);
+  const [chartTab, setChartTab] = useState('combined'); // combined | bp | glucose
   const navigate = useNavigate();
 
 
   useEffect(() => {
-    Promise.allSettled([fetchDailySummary('demo-user'), fetchTrends('demo-user', 7)])
-      .then(([dailyRes, trendRes]) => {
-        if (dailyRes.status === 'fulfilled') {
+    let cancelled = false;
+    Promise.allSettled([fetchDailySummary('demo-user'), fetchTrends('demo-user', 7), fetchHistory(10)])
+      .then(([dailyRes, trendRes, histRes]) => {
+        if (cancelled) return;
+
+        if (histRes && histRes.status === 'fulfilled' && Array.isArray(histRes.value?.data)) {
+          setHistory(histRes.value.data);
+        }
+
+        const trendData = trendRes.status === 'fulfilled' ? (trendRes.value.data || {}) : {};
+        if (trendRes.status === 'fulfilled') setTrends(trendData);
+
+        if (dailyRes.status === 'fulfilled' && dailyRes.value?.data) {
           setDaily(dailyRes.value.data);
-        }
-        if (trendRes.status === 'fulfilled') {
-          setTrends(trendRes.value.data || {});
-        }
-        if (dailyRes.status === 'rejected') {
-          setError(dailyRes.reason?.message || t('sp_loading'));
+          // Cache the last good summary so it survives a later offline reload.
+          try {
+            localStorage.setItem(
+              SUMMARY_CACHE_KEY,
+              JSON.stringify({ daily: dailyRes.value.data, trends: trendData })
+            );
+          } catch (_) { /* storage full / unavailable — ignore */ }
+        } else {
+          // Network/daily failed: fall back to the cached summary if we have one.
+          let cached = null;
+          try {
+            cached = JSON.parse(localStorage.getItem(SUMMARY_CACHE_KEY) || 'null');
+          } catch (_) { cached = null; }
+          if (cached?.daily) {
+            setDaily(cached.daily);
+            setTrends(cached.trends || {});
+            setStale(true);
+          } else {
+            setError(dailyRes.reason?.message || t('sp_loading'));
+          }
         }
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoaded(true));
-  }, []);
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+    // Refetch when language changes so backend-localized text updates.
+  }, [lang]);
+
+  // Refetch trends when the selected period (7/14/30) changes.
+  useEffect(() => {
+    let cancelled = false;
+    fetchTrends('demo-user', trendDays)
+      .then((r) => { if (!cancelled && r?.data) setTrends(r.data); })
+      .catch(() => { /* keep existing trends */ });
+    return () => { cancelled = true; };
+  }, [trendDays, lang]);
+
+  const deleteHistoryItem = async (id) => {
+    if (typeof window !== 'undefined' && !window.confirm(t('sp_history_delete_confirm'))) return;
+    setHistory((prev) => prev.filter((h) => h.measurement_id !== id)); // optimistic
+    try { await deleteMeasurement(id); } catch (_) { /* best-effort */ }
+  };
 
   if (error) return <div className="page"><p>{error}</p></div>;
   if (!loaded) return <div className="page"><p>{t('sp_loading')}</p></div>;
@@ -182,10 +229,29 @@ function SummaryPage() {
 
   const localizedStatusLabel = localizeStatusLabel(daily?.status?.status_label);
 
+  const formatHistoryTime = (ts) => {
+    const raw = String(ts || '').trim();
+    if (!raw) return '';
+    let iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    if (!/[Zz]|[+-]\d{2}:?\d{2}$/.test(iso)) iso += 'Z'; // server stores UTC
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return raw.slice(5, 16);
+    try {
+      return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'ko-KR', {
+        timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      }).format(d);
+    } catch (_) {
+      return raw.slice(5, 16);
+    }
+  };
+
   return (
     <div className="page">
       <h1>{t('sp_title')}</h1>
       <p className="subtitle">{t('sp_subtitle')}</p>
+      {stale && (
+        <div className="quality-warning" role="status">{t('sp_offline_cached')}</div>
+      )}
       <div className="status-badge level">{localizedStatusLabel}</div>
       {(() => {
         const bpTrend = trends.trend_percentages?.bp || 0;
@@ -268,6 +334,27 @@ function SummaryPage() {
 
         <div className="card">
           <h3>{t('sp_chart_title')}</h3>
+          {/* Period selector (7/14/30 days) + metric tabs */}
+          <div className="seg-controls">
+            <div className="seg" role="tablist" aria-label={t('sp_period_aria')}>
+              {[7, 14, 30].map((d) => (
+                <button
+                  key={d}
+                  className={`seg-btn${trendDays === d ? ' active' : ''}`}
+                  onClick={() => setTrendDays(d)}
+                >{d}{t('sp_days_suffix')}</button>
+              ))}
+            </div>
+            <div className="seg" role="tablist" aria-label={t('sp_metric_aria')}>
+              {[['combined', t('sp_tab_combined')], ['bp', t('sp_bp_label')], ['glucose', t('sp_glucose_label')]].map(([key, label]) => (
+                <button
+                  key={key}
+                  className={`seg-btn${chartTab === key ? ' active' : ''}`}
+                  onClick={() => setChartTab(key)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
           <div className="row between">
             <div className="row gap">
               <span className={(trends.trend_percentages?.bp || 0) >= 0 ? 'trend up' : 'trend down'}>
@@ -313,8 +400,12 @@ function SummaryPage() {
               <Legend />
               <ReferenceLine yAxisId="left" y={120} stroke="#5C7CFA" strokeOpacity={0.6} strokeDasharray="4 3" label={{ value: t('sp_ref_bp_normal'), position: 'insideTopLeft', fontSize: 9, fill: '#5C7CFA' }} />
               <ReferenceLine yAxisId="right" y={110} stroke="#9775FA" strokeOpacity={0.6} strokeDasharray="4 3" label={{ value: t('sp_ref_gl_caution'), position: 'insideTopRight', fontSize: 9, fill: '#9775FA' }} />
-              <Line yAxisId="left" type="monotone" dataKey="bp" name={t('sp_bp_label')} stroke="#5C7CFA" strokeWidth={2} dot={{ r: 2 }} />
-              <Line yAxisId="right" type="monotone" dataKey="glucose" name={t('sp_glucose_label')} stroke="#9775FA" strokeWidth={2} dot={{ r: 2 }} />
+              {chartTab !== 'glucose' && (
+                <Line yAxisId="left" type="monotone" dataKey="bp" name={t('sp_bp_label')} stroke="#5C7CFA" strokeWidth={2} dot={{ r: 2 }} />
+              )}
+              {chartTab !== 'bp' && (
+                <Line yAxisId="right" type="monotone" dataKey="glucose" name={t('sp_glucose_label')} stroke="#9775FA" strokeWidth={2} dot={{ r: 2 }} />
+              )}
             </LineChart>
           </ResponsiveContainer>
           <small>{t('sp_latest_time')}: {latestTimeLabel}</small>
@@ -339,6 +430,31 @@ function SummaryPage() {
           ))}
         </div>
       </div>
+
+      {history.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 10 }}>{t('sp_history_title')}</h3>
+          <div className="history-list">
+            {history.map((h) => (
+              <div key={h.measurement_id} className="history-row">
+                <span className="history-date">{formatHistoryTime(h.measurement_time)}</span>
+                <span className="history-metrics">
+                  <b>{h.bp_systolic}/{h.bp_diastolic}</b>
+                  <span className="history-sep">·</span>
+                  <b>{h.blood_sugar}</b>
+                </span>
+                <span className="history-conf">{Math.round((h.confidence || 0) * 100)}%</span>
+                <button
+                  className="history-del"
+                  aria-label={t('sp_history_delete')}
+                  title={t('sp_history_delete')}
+                  onClick={() => deleteHistoryItem(h.measurement_id)}
+                >✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <button onClick={() => navigate('/lifestyle')}>{t('sp_btn_lifestyle')}</button>
     </div>

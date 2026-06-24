@@ -1,0 +1,93 @@
+name: Deploy (server)
+
+# One-click (Actions tab → Run workflow) or automatic on push to main when app
+# source changes. Syncs application source to the Oracle server over SSH and
+# rebuilds the Docker containers. Infra files (Dockerfile / requirements.txt /
+# docker-compose.yml / nginx / caddy) are intentionally NOT synced — those are
+# managed manually on the server. See docs/DEPLOY.md.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_KEY   private SSH key (the ubuntu@server key), full PEM contents
+#   DEPLOY_HOST      server host/IP (e.g. 168.107.10.60)
+#   DEPLOY_USER      ssh user (e.g. ubuntu)
+#   DEPLOY_APP_DIR   app dir (e.g. /home/ubuntu/Yonsei-HCI-LAB-Intern-rPPG-BP-Estimation/Web/visi-vital)
+#   HEALTHCHECK_URL  (optional) e.g. https://yonseihci.kro.kr/api/health
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/src/**'
+      - 'frontend/public/**'
+      - 'backend/models/**'
+      - 'backend/routes/**'
+      - 'backend/utils/**'
+      - 'backend/database/**'
+      - 'backend/config.py'
+      - 'backend/app.py'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync app source to server
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          APP: ${{ secrets.DEPLOY_APP_DIR }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new"
+          # Frontend React source (the container runs `npm run build` on rebuild).
+          rsync -az --exclude '__pycache__' -e "$SSH" \
+            frontend/src/ "$USER@$HOST:$APP/frontend/src/"
+          # PWA assets (manifest, index.html, service worker, icons).
+          rsync -az -e "$SSH" \
+            frontend/public/ "$USER@$HOST:$APP/frontend/public/"
+          # Keep dependency manifests in sync (drift here breaks the build, e.g.
+          # a missing react-helmet that the source imports).
+          rsync -az -e "$SSH" \
+            frontend/package.json frontend/package-lock.json "$USER@$HOST:$APP/frontend/"
+          # Backend Python source only (no Dockerfile/requirements — infra is manual).
+          rsync -az --exclude '__pycache__' --exclude '*.db' -e "$SSH" \
+            backend/models backend/routes backend/utils backend/database backend/config.py backend/app.py \
+            "$USER@$HOST:$APP/backend/"
+
+      - name: Rebuild & restart containers
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          APP: ${{ secrets.DEPLOY_APP_DIR }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$USER@$HOST" \
+            "cd '$APP' \
+             && (grep -q -- '--legacy-peer-deps' frontend/Dockerfile || sed -i 's/^RUN npm install\$/RUN npm install --legacy-peer-deps/' frontend/Dockerfile) \
+             && docker compose build frontend backend \
+             && docker compose up -d \
+             && docker ps --format '{{.Names}}\t{{.Status}}'"
+
+      - name: Health check
+        env:
+          URL: ${{ secrets.HEALTHCHECK_URL }}
+        run: |
+          URL="${URL:-https://yonseihci.kro.kr/api/health}"
+          # Backend loads TensorFlow on boot (~60s) — be patient (~90s).
+          for i in $(seq 1 18); do
+            if curl -fsS --max-time 10 "$URL"; then echo; echo "health OK"; exit 0; fi
+            echo "waiting for service... ($i/18)"; sleep 5
+          done
+          echo "health check failed"; exit 1

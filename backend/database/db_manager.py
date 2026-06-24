@@ -92,6 +92,19 @@ class DatabaseManager:
             ).fetchone()
             return dict(row) if row else None
 
+    def delete_measurement(self, user_id: str, measurement_id: int):
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM measurements WHERE measurement_id = ? AND user_id = ?",
+                (int(measurement_id), user_id),
+            )
+            conn.execute(
+                "DELETE FROM measurement_quality WHERE measurement_id = ?",
+                (int(measurement_id),),
+            )
+            conn.commit()
+            return cursor.rowcount
+
     def save_measurement_quality(
         self,
         measurement_id: int,

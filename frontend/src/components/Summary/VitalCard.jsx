@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { useLang } from '../../contexts/LangContext';
+import Modal from '../common/Modal';
 
 const buildInfoContent = (t) => ({
   'blood-pressure': {
@@ -74,48 +74,39 @@ function VitalCard({ type, systolic, diastolic, value, status, trendData = [] })
       </div>
       <button className="ghost" onClick={(e) => { e.stopPropagation(); setShowInfo(true); }}>{t('vc_info_btn')}</button>
 
-      {showInfo && createPortal(
-        <div
-          className="modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label={info.title}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowInfo(false); }}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="row between" style={{ marginBottom: 12 }}>
-              <h3 style={{ margin: 0 }}>{info.title}</h3>
-              <button
-                className="ghost"
-                onClick={() => setShowInfo(false)}
-                style={{ padding: '4px 10px', fontSize: '1rem' }}
-                aria-label={t('vc_modal_close')}
-              >✕</button>
-            </div>
-            <small style={{ display: 'block', marginBottom: 12, opacity: 0.7 }}>{t('vc_modal_unit')}: {info.unit}</small>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', marginBottom: 14 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', paddingBottom: 6, opacity: 0.6, fontWeight: 500 }}>{t('vc_modal_range')}</th>
-                  <th style={{ textAlign: 'left', paddingBottom: 6, opacity: 0.6, fontWeight: 500 }}>{t('vc_modal_criteria')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {info.body.map((row) => (
-                  <tr key={row.range}>
-                    <td style={{ padding: '5px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, display: 'inline-block', flexShrink: 0 }} />
-                      {row.range}
-                    </td>
-                    <td style={{ padding: '5px 0', paddingLeft: 8, color: row.color, fontWeight: 600 }}>{row.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="disclaimer" style={{ margin: 0, fontSize: '0.8rem' }}>{info.note}</p>
+      {showInfo && (
+        <Modal onClose={() => setShowInfo(false)} label={info.title}>
+          <div className="row between" style={{ marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>{info.title}</h3>
+            <button
+              className="ghost"
+              onClick={() => setShowInfo(false)}
+              style={{ padding: '4px 10px', fontSize: '1rem' }}
+              aria-label={t('vc_modal_close')}
+            >✕</button>
           </div>
-        </div>,
-        document.body
+          <small style={{ display: 'block', marginBottom: 12, opacity: 0.7 }}>{t('vc_modal_unit')}: {info.unit}</small>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', marginBottom: 14 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', paddingBottom: 6, opacity: 0.6, fontWeight: 500 }}>{t('vc_modal_range')}</th>
+                <th style={{ textAlign: 'left', paddingBottom: 6, opacity: 0.6, fontWeight: 500 }}>{t('vc_modal_criteria')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {info.body.map((row) => (
+                <tr key={row.range}>
+                  <td style={{ padding: '5px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, display: 'inline-block', flexShrink: 0 }} />
+                    {row.range}
+                  </td>
+                  <td style={{ padding: '5px 0', paddingLeft: 8, color: row.color, fontWeight: 600 }}>{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="disclaimer" style={{ margin: 0, fontSize: '0.8rem' }}>{info.note}</p>
+        </Modal>
       )}
     </div>
   );

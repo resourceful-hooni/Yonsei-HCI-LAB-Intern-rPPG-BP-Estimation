@@ -72,6 +72,7 @@ function CameraView({ userId, onResult }) {
   const [permissionError, setPermissionError] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isMeasuring, setIsMeasuring] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [faceMeshEnabled, setFaceMeshEnabled] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -377,11 +378,13 @@ function CameraView({ userId, onResult }) {
       const startRes = await startMeasurement(userId);
       const measurementId = startRes.measurement_id;
       const frames = [];
+      const frameTimestamps = [];
 
       timerRef.current = setInterval(async () => {
         const frame = captureFrame();
         if (frame) {
           frames.push(frame);
+          frameTimestamps.push(performance.now() / 1000);
           const canvas = canvasRef.current;
           const ctx = canvas?.getContext('2d', { willReadFrequently: true });
           if (canvas && ctx) {
@@ -439,9 +442,14 @@ function CameraView({ userId, onResult }) {
             return;
           }
 
-          const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
+          // Server-side analysis (decode + rPPG + model) takes a few seconds;
+          // show a dedicated processing overlay so 100% -> result feels intentional.
+          setIsProcessing(true);
+          const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics, frameTimestamps);
+          if (navigator.vibrate) { try { navigator.vibrate([18, 40, 18]); } catch (_) { /* ignore */ } }
           onResult(res.data);
           setMessage('cam_msg_after');
+          setIsProcessing(false);
           setIsMeasuring(false);
         }
       }, Math.round(1000 / FPS));
@@ -451,6 +459,7 @@ function CameraView({ userId, onResult }) {
       } else {
         setMessage(err.message || 'cam_msg_error');
       }
+      setIsProcessing(false);
       setIsMeasuring(false);
     }
   };
@@ -501,11 +510,12 @@ function CameraView({ userId, onResult }) {
           </svg>
         </div>
         <h3 style={{ margin: '0 0 8px' }}>{t('cam_perm_title')}</h3>
-        <p style={{ marginBottom: 16 }}>
+        <p style={{ marginBottom: 12 }}>
           {t('cam_perm_body1')}<br />
           {t('cam_perm_body2')}<br />
           {t('cam_perm_body3')}
         </p>
+        <p className="subtitle" style={{ marginBottom: 16 }}>{t('cam_perm_mobile')}</p>
         <button onClick={() => window.location.reload()}>{t('cam_perm_refresh')}</button>
       </div>
     );
@@ -519,7 +529,7 @@ function CameraView({ userId, onResult }) {
     <div className="card">
       <div className="camera-wrap">
         <video ref={videoRef} className="camera" muted playsInline style={{ transform: 'scaleX(-1)' }} />
-        <canvas ref={overlayRef} className="overlay" />
+        <canvas ref={overlayRef} className="overlay" aria-hidden="true" />
         {/* 상황별 얼굴 감지 안내 메시지 */}
         {isReady && (() => {
           const mv = liveQuality.movement.score;
@@ -605,6 +615,13 @@ function CameraView({ userId, onResult }) {
             <small style={{ color: '#e0e7ff', opacity: 0.8 }}>{t('cam_init_overlay')}</small>
           </div>
         )}
+        {isProcessing && (
+          <div className="processing-overlay" role="status" aria-live="polite">
+            <div className="processing-orb" />
+            <div className="processing-title">{t('cam_processing')}</div>
+            <div className="processing-sub">{t('cam_processing_sub')}</div>
+          </div>
+        )}
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <p>{t(message)}</p>
@@ -635,9 +652,9 @@ function CameraView({ userId, onResult }) {
       <div className="progress-wrap" aria-hidden={!isMeasuring} style={{ opacity: isMeasuring ? 1 : 0.3 }}>
         <div className="progress" style={{ width: `${progress}%` }} />
       </div>
-      {!isMeasuring && isReady && Object.values(liveQuality).some((q) => q.status === 'bad') && (
-        <div className="quality-warning" role="alert">
-          {t('cam_quality_warn')}
+      {isReady && Object.values(liveQuality).some((q) => q.status === 'bad') && (
+        <div className="quality-warning" role="alert" aria-live="assertive">
+          {isMeasuring ? t('cam_quality_warn_live') : t('cam_quality_warn')}
         </div>
       )}
       <div className="fab-spacer" />

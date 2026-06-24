@@ -16,8 +16,11 @@ class ResearchBPModelBridge:
         model_path: Optional[str] = None,
         scaler_info_path: Optional[str] = None,
         target_len: int = 875,
+        model_fs: float = 0.0,
     ):
         self.target_len = int(target_len)
+        # Training sampling rate (Hz). 0 => unknown => legacy time-stretch.
+        self.model_fs = float(model_fs) if model_fs else 0.0
         self.model = None
         self.model_path = None
 
@@ -167,6 +170,51 @@ class ResearchBPModelBridge:
             except Exception:
                 continue
 
+    def _antialias(self, signal: np.ndarray, n_target: int) -> np.ndarray:
+        """Low-pass before downsampling len(signal) -> n_target to avoid aliasing."""
+        if n_target >= len(signal):
+            return signal
+        cutoff = float(np.clip(n_target / len(signal), 0.001, 0.999))
+        try:
+            b, a = butter(4, cutoff, btype="low")
+            return filtfilt(b, a, signal)
+        except Exception:
+            return signal
+
+    @staticmethod
+    def _fix_length(signal: np.ndarray, n: int) -> np.ndarray:
+        """Force a 1-D signal to exactly n samples: centered crop or reflect-pad."""
+        length = len(signal)
+        if length == n:
+            return signal
+        if length > n:
+            start = (length - n) // 2
+            return signal[start : start + n]
+        pad = n - length
+        left = pad // 2
+        right = pad - left
+        mode = "reflect" if length > 1 else "edge"
+        return np.pad(signal, (left, right), mode=mode)
+
+    def _fit_signal(self, signal: np.ndarray, fs: float) -> np.ndarray:
+        """Prepare the rPPG signal for the model's expected input length.
+
+        When the training rate (model_fs) is known, resample to that rate and
+        take a target_len window so physiological frequencies are preserved.
+        Otherwise fall back to the legacy whole-capture stretch to target_len.
+        """
+        signal = np.asarray(signal, dtype=np.float64).reshape(-1)
+        if len(signal) <= 1:
+            return signal.astype(np.float32)
+
+        if self.model_fs > 0 and fs and fs > 0:
+            n_resampled = max(1, int(round(len(signal) * self.model_fs / fs)))
+            signal = self._antialias(signal, n_resampled)
+            signal = resample(signal, n_resampled)
+            return self._fix_length(signal, self.target_len).astype(np.float32)
+
+        return self._proper_resample(signal, fs)
+
     def _proper_resample(self, signal: np.ndarray, fs: float) -> np.ndarray:
         if len(signal) <= 1:
             return signal.astype(np.float32)
@@ -217,7 +265,7 @@ class ResearchBPModelBridge:
             return None
 
         signal = np.asarray(ppg_signal, dtype=np.float32).reshape(-1)
-        signal = self._proper_resample(signal, frame_rate)
+        signal = self._fit_signal(signal, frame_rate)
         signal = self._normalize(signal)
 
         input_data = self._format_input(signal)

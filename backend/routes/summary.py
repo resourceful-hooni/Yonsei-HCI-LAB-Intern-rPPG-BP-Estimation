@@ -4,6 +4,7 @@ from typing import Optional
 import numpy as np
 from flask import Blueprint, current_app, jsonify, request
 
+from utils import i18n
 from utils.security import rate_limit, require_api_key
 from utils.status_classifier import classify_status
 from utils.text_generator import generate_summary
@@ -40,59 +41,50 @@ def _time_label(dt_str: str):
     return dt_str
 
 
-def _quality_status(score: Optional[float]):
-    if score is None:
-        return "보통"
-    if score >= 0.75:
-        return "좋음"
-    if score >= 0.55:
-        return "보통"
-    return "개선 필요"
+def _code_from(ok_good: bool, ok_fair: bool) -> str:
+    return "good" if ok_good else "fair" if ok_fair else "poor"
 
 
-def _quality_checklist(quality: Optional[dict], confidence: float, bp_cv: float, gl_cv: float):
+def _quality_checklist(quality: Optional[dict], confidence: float, bp_cv: float, gl_cv: float, lang: str):
     if quality:
-        return [
-            {
-                "id": "lighting",
-                "label": "조명",
-                "status": _quality_status(quality.get("lighting_score")),
-                "score": round(float(quality.get("lighting_score") or 0.0), 3),
-                "tip": "얼굴 좌우 밝기 차이를 줄이고 그림자가 생기지 않도록 조명을 맞춰주세요.",
-            },
-            {
-                "id": "movement",
-                "label": "움직임",
-                "status": _quality_status(quality.get("movement_score")),
-                "score": round(float(quality.get("movement_score") or 0.0), 3),
-                "tip": "측정 중 고개·시선 이동을 줄이고 자연스럽게 정면을 유지해주세요.",
-            },
-            {
-                "id": "alignment",
-                "label": "얼굴정렬",
-                "status": _quality_status(quality.get("alignment_score")),
-                "score": round(float(quality.get("alignment_score") or 0.0), 3),
-                "tip": "얼굴 중심이 프레임 중앙에 오도록 위치를 맞추고 턱선이 잘 보이게 해주세요.",
-            },
-        ]
+        items = []
+        for qid, score_key in (("lighting", "lighting_score"), ("movement", "movement_score"), ("alignment", "alignment_score")):
+            score = quality.get(score_key)
+            items.append({
+                "id": qid,
+                "label": i18n.quality_label(qid, lang),
+                "status": i18n.quality_status_text(i18n.quality_status_code(score), lang),
+                "score": round(float(score or 0.0), 3),
+                "tip": i18n.quality_tip(qid, lang, measured=True),
+            })
+        return items
 
-    lighting = "좋음" if confidence >= 0.8 else "보통" if confidence >= 0.65 else "개선 필요"
-    movement = "좋음" if max(bp_cv, gl_cv) < 12 else "보통" if max(bp_cv, gl_cv) < 18 else "개선 필요"
-    alignment = "좋음" if confidence >= 0.75 else "보통" if confidence >= 0.6 else "개선 필요"
+    mcv = max(bp_cv, gl_cv)
+    codes = {
+        "lighting": _code_from(confidence >= 0.8, confidence >= 0.65),
+        "movement": _code_from(mcv < 12, mcv < 18),
+        "alignment": _code_from(confidence >= 0.75, confidence >= 0.6),
+    }
     return [
-        {"id": "lighting", "label": "조명", "status": lighting, "tip": "얼굴 정면에 균일한 빛을 유지해주세요."},
-        {"id": "movement", "label": "움직임", "status": movement, "tip": "측정 중 고개/상체 움직임을 줄여주세요."},
-        {"id": "alignment", "label": "얼굴정렬", "status": alignment, "tip": "얼굴을 화면 중앙에 유지해주세요."},
+        {
+            "id": qid,
+            "label": i18n.quality_label(qid, lang),
+            "status": i18n.quality_status_text(codes[qid], lang),
+            "tip": i18n.quality_tip(qid, lang, measured=False),
+        }
+        for qid in ("lighting", "movement", "alignment")
     ]
 
 
-def _daily_comment(bp_cv: float, gl_cv: float, bp_delta: float, gl_delta: float):
+def _daily_comment(bp_cv: float, gl_cv: float, bp_delta: float, gl_delta: float, lang: str):
     total_cv = max(bp_cv, gl_cv)
     if total_cv < 10 and abs(bp_delta) < 5 and abs(gl_delta) < 5:
-        return "오늘은 최근 흐름 대비 변동 폭이 비교적 안정적으로 보여요."
-    if total_cv < 16:
-        return "최근 기록에서 작은 변동이 보여요. 측정 환경을 일정하게 유지해보세요."
-    return "최근 변동 폭이 다소 큰 편이에요. 조명과 자세를 일정하게 맞춰 측정해보세요."
+        variant = "stable"
+    elif total_cv < 16:
+        variant = "small"
+    else:
+        variant = "large"
+    return i18n.daily_comment(variant, lang)
 
 
 @summary_bp.route("/daily", methods=["GET"])
@@ -100,6 +92,7 @@ def _daily_comment(bp_cv: float, gl_cv: float, bp_delta: float, gl_delta: float)
 @rate_limit
 def get_daily_summary():
     user_id = current_app.config.get("DEMO_USER_ID", "demo-user")
+    lang = i18n.normalize_lang(request.args.get("lang"))
 
     latest = current_app.db.get_latest_measurement(user_id)
     recent = current_app.db.get_recent_measurements(user_id, days=7)
@@ -110,8 +103,8 @@ def get_daily_summary():
     bp_values = [float(r["bp_systolic"]) for r in recent]
     glucose_values = [float(r["blood_sugar"]) for r in recent]
 
-    status = classify_status(bp_values, glucose_values)
-    summary_text = generate_summary(status)
+    status = classify_status(bp_values, glucose_values, lang)
+    summary_text = generate_summary(status, lang)
 
     avg_sbp = float(np.mean(bp_values)) if bp_values else float(latest["bp_systolic"])
     avg_gl = float(np.mean(glucose_values)) if glucose_values else float(latest["blood_sugar"])
@@ -144,10 +137,7 @@ def get_daily_summary():
                     "blood_sugar": latest["blood_sugar"],
                     "confidence": latest.get("confidence"),
                 },
-                "labels": {
-                    "bp": "혈압",
-                    "glucose": "혈당",
-                },
+                "labels": i18n.vital_labels(lang),
                 "delta_badges": {
                     "bp_systolic": round(delta_sbp, 1),
                     "blood_sugar": round(delta_gl, 1),
@@ -155,7 +145,7 @@ def get_daily_summary():
                     "glucose_avg_7d": round(avg_gl, 1),
                 },
                 "confidence_trend": confidence_trend,
-                "quality_checklist": _quality_checklist(quality, current_conf, bp_cv, gl_cv),
+                "quality_checklist": _quality_checklist(quality, current_conf, bp_cv, gl_cv, lang),
                 "quality_meta": {
                     "type": "measured_vision_metrics" if quality else "rule_based_estimation",
                     "is_measured_directly": bool(quality),
@@ -170,12 +160,8 @@ def get_daily_summary():
                         "method": None if not quality else quality.get("method"),
                     },
                 },
-                "daily_comment": _daily_comment(bp_cv, gl_cv, delta_sbp, delta_gl),
-                "reguide": {
-                    "title": "다시 측정 가이드",
-                    "description": "조명/자세/정렬 팁을 확인하고 다시 측정해보세요.",
-                    "path": "/measurement",
-                },
+                "daily_comment": _daily_comment(bp_cv, gl_cv, delta_sbp, delta_gl, lang),
+                "reguide": i18n.reguide(lang),
             },
         }
     )
