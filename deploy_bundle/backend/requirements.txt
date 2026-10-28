@@ -1,10 +1,8 @@
-Flask==2.3.0
-Flask-CORS==4.0.0
-numpy==1.24.0
-scipy==1.10.0
-opencv-python==4.8.0.76
-mediapipe==0.10.11
-scikit-learn==1.3.0
-pandas==2.0.0
-python-dotenv==1.0.0
-tensorflow==2.13.0
+Flask==3.1.3
+Flask-CORS==6.0.5
+numpy==2.5.4
+scipy==1.18.1
+# mediapipe가 opencv-contrib-python에 의존하므로 opencv-python을 따로 설치하면 cv2가 충돌함
+opencv-contrib-python==5.0.0.93
+mediapipe==1.2.0
+python-dotenv==1.2.4
