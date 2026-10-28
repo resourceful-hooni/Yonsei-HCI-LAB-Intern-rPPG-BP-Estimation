@@ -39,6 +39,7 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 3. `pip install -r requirements.txt`
 	- 연구용 BP 모델(`RESEARCH_BP_MODEL_PATH`, .h5)을 쓸 때만: `pip install -r requirements-research.txt` (TensorFlow)
 	- `opencv-python`이 이미 설치된 환경이면 먼저 제거하세요(`pip uninstall opencv-python`). MediaPipe가 쓰는 `opencv-contrib-python`과 충돌합니다.
+	- Linux 서버: MediaPipe용 시스템 라이브러리 필요 (`sudo apt-get install -y libegl1 libgles2`)
 4. 루트 [.env](.env) 설정 확인
 5. `python app.py`
 6. 테스트: `pip install -r requirements-dev.txt` 후 `python -m pytest`

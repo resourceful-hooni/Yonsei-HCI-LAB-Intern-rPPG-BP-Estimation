@@ -8,6 +8,10 @@ import numpy as np
 from scipy.signal import butter, filtfilt, resample
 
 
+def _parse_floats(text: str) -> np.ndarray:
+    return np.array(text.split(), dtype=np.float64)
+
+
 class ResearchBPModelBridge:
     """Bridge to load and run existing Yonsei research BP model (.h5)."""
 

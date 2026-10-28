@@ -49,7 +49,8 @@ try {
     if (outcome === 'result') {
       console.log(`  result: ${(await page.locator('.result-number').first().textContent()).trim()}`);
     } else if (outcome === 'timeout') {
-      await fail('measurement produced neither a result nor a quality failure');
+      const text = (await page.locator('body').innerText()).slice(0, 1500);
+      await fail(`measurement produced neither a result nor a quality failure. Page text:\n${text}`);
     }
   }
 
