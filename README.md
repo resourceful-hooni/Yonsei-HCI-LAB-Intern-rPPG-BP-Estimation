@@ -27,23 +27,28 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 
 ## 2) 기술 스택
 
-- Backend: Flask, SQLite, NumPy, SciPy, OpenCV, TensorFlow
-- Frontend: React, Recharts, MediaPipe FaceMesh
-- 환경: Windows 기준 개발/검증
+- Backend: Python 3.12+, Flask 3, SQLite, NumPy 2, SciPy, OpenCV, MediaPipe Tasks(FaceLandmarker), TensorFlow(선택)
+- Frontend: Node.js 20.19+, React 19, Vite, React Router 7, Recharts 3, MediaPipe FaceMesh
+- 환경: Windows 기준 개발/검증 (CI는 Windows + Ubuntu에서 테스트)
 
 ## 3) 실행 방법
 
 ### Backend
 1. [backend](backend) 이동
-2. 가상환경 생성/활성화
+2. Python 3.12 이상으로 가상환경 생성/활성화 (`py -3.12 -m venv .venv`)
 3. `pip install -r requirements.txt`
+	- 연구용 BP 모델(`RESEARCH_BP_MODEL_PATH`, .h5)을 쓸 때만: `pip install -r requirements-research.txt` (TensorFlow)
+	- `opencv-python`이 이미 설치된 환경이면 먼저 제거하세요(`pip uninstall opencv-python`). MediaPipe가 쓰는 `opencv-contrib-python`과 충돌합니다.
 4. 루트 [.env](.env) 설정 확인
 5. `python app.py`
+6. 테스트: `pip install -r requirements-dev.txt` 후 `python -m pytest`
 
 ### Frontend
 1. [frontend](frontend) 이동
 2. `npm install`
-3. `npm start`
+3. `npm start` (Vite 개발 서버, http://localhost:3000, `/api`는 백엔드 5000번으로 프록시)
+4. 배포용 빌드: `npm run build` → `frontend/build`, 미리보기: `npm run preview`
+	- 환경변수는 기존과 같이 `frontend/.env`의 `REACT_APP_*` 사용
 
 ## 4) 환경 변수(.env)
 
@@ -97,20 +102,19 @@ rPPG 기반 비접촉 건강 모니터링(혈압/혈당 참고값) 웹앱입니�
 	- 주기: 매주 월요일
 - 기본 CI 점검
 	- [.github/workflows/ci-maintenance.yml](.github/workflows/ci-maintenance.yml)
-	- Frontend: `npm install --legacy-peer-deps` + `npm run build` + `npm audit(고위험, prod)`
-	- Backend: `requirements.txt` 해석(dry-run) + `app.py` 문법 점검
-- 브라우저 호환 DB 자동 갱신(PR 생성)
-	- [.github/workflows/browserslist-update.yml](.github/workflows/browserslist-update.yml)
-	- `caniuse-lite`(Browserslist DB) 주간 업데이트
+	- Frontend: `npm ci` + `npm run build` + `npm audit`(고위험)
+	- Backend: Windows/Ubuntu × Python 3.12에서 `pytest` (API 전체 + 얼굴 이미지 기반 측정 파이프라인)
+	- E2E: 프로덕션 빌드 + 실제 백엔드 + 가짜 카메라(얼굴 영상)로 측정→요약 차트→생활관리 스모크 테스트
 - Dependabot PR 자동 병합
 	- [.github/workflows/dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)
-	- 조건: CI 통과 시 `patch/minor/major` 자동 squash merge
+	- patch/minor: 생태계별 그룹 PR로 묶어 CI 통과 시 자동 squash merge
+	- major: `major-update` 라벨을 달고 수동 검토
 
 ### 운영 루틴
 
 1. 자동 생성된 의존성 PR은 CI 통과 시 자동 병합
 2. 월 1회 릴리즈 브랜치에서 실서버 스모크 테스트
-3. 주요 패키지(`react`, `react-scripts`, `tensorflow`, `flask`)는
+3. 주요 패키지(`react`, `vite`, `mediapipe`, `tensorflow`, `flask`)는
 	 보안 공지(CVE) 발생 시 주간 주기와 무관하게 즉시 업데이트
 
 ### GitHub에서 자동화 활성화 전 확인

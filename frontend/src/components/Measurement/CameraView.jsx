@@ -1,8 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FaceMesh } from '@mediapipe/face_mesh';
 import { processMeasurement, startMeasurement } from '../../services/apiService';
 import { useLang } from '../../contexts/LangContext';
+
+// face_mesh.js는 ESM export 없이 window.FaceMesh를 등록하는 클로저 스크립트이고 package.json에
+// "sideEffects": []가 있어 Vite가 번들에서 제거함. wasm/모델과 같은 CDN·버전에서 런타임에 로드.
+const FACE_MESH_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
+let faceMeshScriptPromise = null;
+
+function loadFaceMeshScript() {
+  if (window.FaceMesh) return Promise.resolve(window.FaceMesh);
+  if (!faceMeshScriptPromise) {
+    faceMeshScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `${FACE_MESH_CDN}/face_mesh.js`;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => (window.FaceMesh ? resolve(window.FaceMesh) : reject(new Error('FaceMesh not found')));
+      script.onerror = () => {
+        faceMeshScriptPromise = null;
+        reject(new Error('Failed to load face_mesh.js'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return faceMeshScriptPromise;
+}
 
 const TOTAL_FRAMES = 300;
 const FPS = 30;
@@ -133,8 +155,9 @@ function CameraView({ userId, onResult }) {
 
     const init = async () => {
       try {
+        const FaceMesh = await loadFaceMeshScript();
         faceMeshRef.current = new FaceMesh({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
+          locateFile: (file) => `${FACE_MESH_CDN}/${file}`
         });
         faceMeshRef.current.setOptions({
           maxNumFaces: 1,
