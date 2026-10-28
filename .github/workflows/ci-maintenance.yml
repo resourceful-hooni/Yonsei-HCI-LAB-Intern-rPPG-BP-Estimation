@@ -120,7 +120,7 @@ jobs:
         run: |
           command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
           curl -sfL -o "$RUNNER_TEMP/portrait.jpg" https://storage.googleapis.com/mediapipe-assets/portrait.jpg
-          ffmpeg -loglevel error -loop 1 -i "$RUNNER_TEMP/portrait.jpg" -t 5 -r 30 -vf "scale=640:480:force_original_aspect_ratio=decrease,pad=640:480:(ow-iw)/2:(oh-ih)/2" -pix_fmt yuv420p "$RUNNER_TEMP/face.y4m"
+          ffmpeg -loglevel error -loop 1 -i "$RUNNER_TEMP/portrait.jpg" -t 5 -r 30 -vf "crop=iw:iw*3/4:0:0,scale=640:480,eq=brightness=0.08" -pix_fmt yuv420p "$RUNNER_TEMP/face.y4m"
 
       - name: Run smoke test
         working-directory: frontend
