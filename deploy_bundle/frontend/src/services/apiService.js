@@ -1,5 +1,5 @@
-const API_BASE_URL = 'http://localhost:5000/api';
-const API_KEY = process.env.REACT_APP_API_KEY || 'your-frontend-api-key';
+const API_BASE_URL = import.meta.env.REACT_APP_API_BASE_URL || '/api';
+const API_KEY = import.meta.env.REACT_APP_API_KEY || 'your-frontend-api-key';
 
 const request = async (url, options = {}) => {
   let response;

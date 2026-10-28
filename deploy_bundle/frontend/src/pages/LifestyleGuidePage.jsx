@@ -12,8 +12,10 @@ import {
   saveHabitCheckin,
   saveNotificationSetting,
 } from '../services/apiService';
+import { useLang } from '../contexts/LangContext';
 
 function LifestyleGuidePage() {
+  const { t } = useLang();
   const [comparison, setComparison] = useState(null);
   const [daily, setDaily] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
@@ -22,6 +24,7 @@ function LifestyleGuidePage() {
   const [notifications, setNotifications] = useState([]);
   const [pageError, setPageError] = useState('');
   const [selected, setSelected] = useState(null);
+  const [animTick, setAnimTick] = useState({ sleep: 0, water: 0, salt: 0 });
   const todayKey = new Date().toISOString().slice(0, 10);
   const offlineHabitKey = `visi_vital_habit_offline_${todayKey}`;
 
@@ -79,10 +82,10 @@ function LifestyleGuidePage() {
       if (n.status === 'fulfilled') setNotifications(n.value.data || []);
 
       if (c.status === 'rejected' && r.status === 'rejected') {
-        setPageError('생활관리 데이터를 불러오지 못했습니다. 백엔드 서버 상태를 확인해주세요.');
+        setPageError(t('lg_load_error'));
       }
     });
-  }, []);
+  }, [t]);
 
   const deltaBadges = daily?.delta_badges || {
     bp_systolic: 0,
@@ -93,10 +96,14 @@ function LifestyleGuidePage() {
 
   const dailyComment = daily?.daily_comment
     || (Number(daily?.current_values?.confidence || 0) >= 0.75
-      ? '오늘 측정 품질이 비교적 안정적이에요. 같은 환경에서 꾸준히 측정해보세요.'
-      : '측정 품질을 높이기 위해 조명과 자세를 일정하게 맞춘 뒤 다시 측정해보세요.');
+      ? t('sp_subtitle')
+      : t('sp_guide_body'));
 
   const handleCheck = async (habitId, checked) => {
+    // Trigger pop animation by bumping the tick counter
+    if (checked) {
+      setAnimTick((prev) => ({ ...prev, [habitId]: prev[habitId] + 1 }));
+    }
     const prev = progress;
     const draft = ensureProgressShape(prev);
     const wasChecked = Boolean(draft.today_checks[habitId]);
@@ -146,125 +153,135 @@ function LifestyleGuidePage() {
     }
   };
 
-  const progressItem = (id, title) => {
-    const item = progress?.progress?.[id];
+  const routineRow = (habitId, label, emoji) => {
+    const item = progress?.progress?.[habitId];
+    const isChecked = Boolean(progress?.today_checks?.[habitId]);
     return (
-      <div className="routine-item" key={id}>
-        <div className="row between">
-          <strong>{title}</strong>
-          <small>{item?.completed_days ?? 0}/{item?.target_days ?? 7}일</small>
+      <div className="routine-row" key={habitId}>
+        <div className="routine-row-top">
+          <label className="routine-check-label" style={{ cursor: 'pointer' }}>
+            <span
+              key={animTick[habitId]}
+              className={animTick[habitId] > 0 ? 'check-pop' : ''}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={(e) => handleCheck(habitId, e.target.checked)}
+                style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span>{emoji} {label}</span>
+            </span>
+          </label>
+          <span className="routine-day-badge">
+            {item?.completed_days ?? 0}<span style={{ opacity: 0.5 }}>/{item?.target_days ?? 7} {t('lg_day_suffix')}</span>
+          </span>
         </div>
         <div className="progress-wrap" style={{ marginTop: 6 }}>
           <div className="progress" style={{ width: `${item?.progress ?? 0}%` }} />
         </div>
+        <small style={{ opacity: 0.55, fontSize: '0.75rem' }}>{t('lg_checkin_hint')}</small>
       </div>
     );
   };
 
-  const checkToggle = (habitId, label) => (
-    <label className="check-toggle" key={habitId}>
-      <input
-        type="checkbox"
-        checked={Boolean(progress?.today_checks?.[habitId])}
-        onChange={(e) => handleCheck(habitId, e.target.checked)}
-      />
-      <span>{label}</span>
-    </label>
-  );
-
   return (
-    <div className="page">
-      <h1>생활관리 참고 가이드</h1>
-      <p className="subtitle">최근 기록을 일반적인 범위와 비교해 보여드려요.</p>
+    <div className="page lifestyle-page">
+      <h1>{t('lg_title')}</h1>
+      <p className="subtitle">{t('lg_subtitle')}</p>
       {pageError && <p className="subtitle" style={{ color: '#c92a2a' }}>{pageError}</p>}
 
-      {comparison && (
-        <div className="grid two">
-          <ComparisonChart title="혈압" percentile={comparison.bp_percentile} color="#5C7CFA" />
-          <ComparisonChart title="혈당" percentile={comparison.glucose_percentile} color="#9775FA" />
+      {/* ── 섹션 1: 백분위 비교 ── */}
+      {comparison ? (
+        <div className="grid two ls-section">
+          <ComparisonChart title={t('lg_bp_label')} percentile={comparison.bp_percentile} color="#5C7CFA" />
+          <ComparisonChart title={t('lg_glucose_label')} percentile={comparison.glucose_percentile} color="#9775FA" />
         </div>
+      ) : (
+        <div className="ls-section"><div className="card"><p style={{ margin: 0 }}>{t('lg_bp_loading')}</p></div></div>
       )}
 
-      {!comparison && <div className="card"><p>혈압/혈당 비교 데이터를 불러오는 중이거나 서버 연결이 필요합니다.</p></div>}
-
+      {/* ── 섹션 2: 오늘 vs 7일 평균 + 한 줄 코멘트 ── */}
       {daily && (
-        <div className="grid two">
+        <div className="grid two ls-section">
           <div className="card">
-            <h3>오늘 vs 최근 7일 평균</h3>
-            <div className="row between">
-              <span>혈압(SBP)</span>
-              <span className={`delta-badge ${deltaClass(deltaBadges.bp_systolic || 0)}`}>
-                {deltaText(deltaBadges.bp_systolic || 0)}
-              </span>
-            </div>
-            <small>7일 평균 {Number(deltaBadges.bp_avg_7d || 0).toFixed(1)} 기준</small>
+            <h3>{t('lg_today_vs_7d')}</h3>
             <div className="row between" style={{ marginTop: 8 }}>
-              <span>혈당</span>
-              <span className={`delta-badge ${deltaClass(deltaBadges.blood_sugar || 0)}`}>
-                {deltaText(deltaBadges.blood_sugar || 0)}
-              </span>
+              <span>{t('lg_bp_sbp')}</span>
+              <span className={`delta-badge ${deltaClass(deltaBadges.bp_systolic || 0)}`}>{deltaText(deltaBadges.bp_systolic || 0)}</span>
             </div>
-            <small>7일 평균 {Number(deltaBadges.glucose_avg_7d || 0).toFixed(1)} 기준</small>
+            <small style={{ opacity: 0.55 }}>{t('lg_7d_avg', { v: Number(deltaBadges.bp_avg_7d || 0).toFixed(1) })}</small>
+            <div className="row between" style={{ marginTop: 10 }}>
+              <span>{t('lg_glucose')}</span>
+              <span className={`delta-badge ${deltaClass(deltaBadges.blood_sugar || 0)}`}>{deltaText(deltaBadges.blood_sugar || 0)}</span>
+            </div>
+            <small style={{ opacity: 0.55 }}>{t('lg_7d_avg', { v: Number(deltaBadges.glucose_avg_7d || 0).toFixed(1) })}</small>
           </div>
-
           <div className="card">
-            <h3>오늘 한 줄 코멘트</h3>
-            <p>{dailyComment}</p>
+            <h3>{t('lg_comment_title')}</h3>
+            <p style={{ margin: 0 }}>{dailyComment}</p>
           </div>
         </div>
       )}
 
-      <div className="grid two">
+      {/* ── 섹션 3: 루틴 체크인 ── */}
+      <div className="ls-section">
         <div className="card">
-          <h3>추천 실천률 체크</h3>
-          <p className="subtitle" style={{ marginBottom: 8 }}>오늘 실천률: {progress?.today_completion_rate ?? 0}%</p>
-          {checkToggle('sleep', '수면 루틴 실천')}
-          {checkToggle('water', '수분 루틴 실천')}
-          {checkToggle('salt', '저염 루틴 실천')}
-        </div>
-
-        <div className="card">
-          <h3>개인 루틴 목표 3개</h3>
-          {progressItem('sleep', '수면')}
-          {progressItem('water', '수분')}
-          {progressItem('salt', '염분')}
+          <h3>{t('lg_routine_title')}</h3>
+          <p className="subtitle" style={{ marginBottom: 14 }}>{t('lg_routine_rate')} <strong>{progress?.today_completion_rate ?? 0}%</strong> &nbsp;•&nbsp; {t('lg_routine_hint2')}</p>
+          {routineRow('sleep', t('lg_sleep'), '💤')}
+          {routineRow('water', t('lg_water'), '💧')}
+          {routineRow('salt', t('lg_salt'), '🧂')}
         </div>
       </div>
 
-      <div className="grid two">
+      {/* ── 섹션 4: 주간 비교 + 알림 ── */}
+      <div className="grid two ls-section">
         <div className="card">
-          <h3>주간 변화 전/후 비교</h3>
+          <h3>{t('lg_weekly_title')}</h3>
           {beforeAfter ? (
             <>
-              <p>혈압(SBP): {beforeAfter.before?.bp_systolic} → {beforeAfter.after?.bp_systolic} ({beforeAfter.delta?.bp_systolic > 0 ? '+' : ''}{beforeAfter.delta?.bp_systolic})</p>
-              <p>혈당: {beforeAfter.before?.blood_sugar} → {beforeAfter.after?.blood_sugar} ({beforeAfter.delta?.blood_sugar > 0 ? '+' : ''}{beforeAfter.delta?.blood_sugar})</p>
+              <div className="row between" style={{ marginTop: 8 }}>
+                <span>{t('lg_bp_sbp')}</span>
+                <span>{beforeAfter.before?.bp_systolic} → <strong>{beforeAfter.after?.bp_systolic}</strong> ({beforeAfter.delta?.bp_systolic > 0 ? '+' : ''}{beforeAfter.delta?.bp_systolic})</span>
+              </div>
+              <div className="row between" style={{ marginTop: 8 }}>
+                <span>{t('lg_glucose')}</span>
+                <span>{beforeAfter.before?.blood_sugar} → <strong>{beforeAfter.after?.blood_sugar}</strong> ({beforeAfter.delta?.blood_sugar > 0 ? '+' : ''}{beforeAfter.delta?.blood_sugar})</span>
+              </div>
             </>
-          ) : <p>비교를 위한 데이터가 아직 부족해요.</p>}
+          ) : <p style={{ margin: '8px 0 0', opacity: 0.6, fontSize: '0.9rem' }}>{t('lg_weekly_no_data')}</p>}
         </div>
 
         <div className="card">
-          <h3>알림 설정</h3>
+          <h3>{t('lg_notif_title')}</h3>
+          <small style={{ display: 'block', marginBottom: 10, opacity: 0.65, lineHeight: 1.45 }}>
+            ℹ️ {t('lg_notif_sub')}
+          </small>
+          {notifications.length === 0 && (
+            <p style={{ fontSize: '0.85rem', opacity: 0.55, margin: 0 }}>{t('lg_notif_empty')}</p>
+          )}
           {notifications.map((item) => (
-            <div key={item.setting_type} className="row between" style={{ marginBottom: 8 }}>
-              <span>{item.setting_type === 'measurement' ? '측정 시간' : item.setting_type === 'water' ? '물 마시기' : '취침 루틴'} ({item.setting_time})</span>
-              <input
-                type="checkbox"
-                checked={Boolean(item.enabled)}
-                onChange={(e) => handleNotificationToggle(item, e.target.checked)}
-              />
+            <div key={item.setting_type} className="row between" style={{ paddingBottom: 8, borderBottom: '1px solid #f1f5f9' }}>
+              <span style={{ fontSize: '0.9rem' }}>{item.setting_type === 'measurement' ? `⏰ ${t('lg_notif_measure')}` : item.setting_type === 'water' ? `💧 ${t('lg_notif_water')}` : `🌙 ${t('lg_notif_sleep')}`} <small style={{ opacity: 0.55 }}>({item.setting_time})</small></span>
+              <input type="checkbox" checked={Boolean(item.enabled)} onChange={(e) => handleNotificationToggle(item, e.target.checked)} />
             </div>
           ))}
         </div>
       </div>
 
-      <div className="grid">
-        <h3 className="section-title">습관 제안</h3>
-        {recommendations.map((item) => (
-          <HabitCard key={item.id} item={item} onOpen={() => setSelected(item)} />
-        ))}
+      {/* ── 섹션 5: 습관 제안 ── */}
+      <div className="ls-section">
+        <h3 className="section-title">{t('lg_habits_title')}</h3>
+        <div className="grid">
+          {recommendations.map((item) => (
+            <HabitCard key={item.id} item={item} onOpen={() => setSelected(item)} />
+          ))}
+        </div>
       </div>
 
-      <p className="disclaimer">ℹ️ 본 서비스는 의료인의 진단이나 치료를 대체하지 않으며, 제공되는 정보는 자가 건강관리를 위한 참고 정보입니다.</p>
+      <p className="disclaimer">ℹ️ {t('lg_disclaimer')}</p>
 
       {selected && <WhyNeededModal item={selected} onClose={() => setSelected(null)} />}
     </div>

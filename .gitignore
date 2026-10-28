@@ -15,6 +15,7 @@ env/
 
 # Node
 frontend/node_modules/
+deploy_bundle/frontend/node_modules/
 frontend/.cache/
 
 # React build artifacts (keep if you want static release only)

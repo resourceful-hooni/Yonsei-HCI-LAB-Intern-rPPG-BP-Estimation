@@ -1,19 +1,84 @@
 import { useEffect, useRef, useState } from 'react';
-import { FaceMesh } from '@mediapipe/face_mesh';
+import { createPortal } from 'react-dom';
 import { processMeasurement, startMeasurement } from '../../services/apiService';
+import { useLang } from '../../contexts/LangContext';
+
+// face_mesh.js는 ESM export 없이 window.FaceMesh를 등록하는 클로저 스크립트이고 package.json에
+// "sideEffects": []가 있어 Vite가 번들에서 제거함. wasm/모델과 같은 CDN·버전에서 런타임에 로드.
+const FACE_MESH_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
+let faceMeshScriptPromise = null;
+
+function loadFaceMeshScript() {
+  if (window.FaceMesh) return Promise.resolve(window.FaceMesh);
+  if (!faceMeshScriptPromise) {
+    faceMeshScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `${FACE_MESH_CDN}/face_mesh.js`;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => (window.FaceMesh ? resolve(window.FaceMesh) : reject(new Error('FaceMesh not found')));
+      script.onerror = () => {
+        faceMeshScriptPromise = null;
+        reject(new Error('Failed to load face_mesh.js'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return faceMeshScriptPromise;
+}
 
 const TOTAL_FRAMES = 300;
 const FPS = 30;
 const CAPTURE_WIDTH = 320;
 const JPEG_QUALITY = 0.55;
+const MEDIAPIPE_WEBGL_LOG_PATTERN = /(gl_context_webgl\.cc:151|gl_context\.cc:351|gl_context\.cc:821|Successfully created a WebGL context|GL version:|OpenGL error checking is disabled)/;
+
+function suppressMediapipeWebglLogs() {
+  const original = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+  };
+
+  const shouldSuppress = (args) => {
+    const message = args
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (entry instanceof Error) return entry.message;
+        return String(entry ?? '');
+      })
+      .join(' ');
+    return MEDIAPIPE_WEBGL_LOG_PATTERN.test(message);
+  };
+
+  console.log = (...args) => {
+    if (shouldSuppress(args)) return;
+    original.log(...args);
+  };
+  console.info = (...args) => {
+    if (shouldSuppress(args)) return;
+    original.info(...args);
+  };
+  console.warn = (...args) => {
+    if (shouldSuppress(args)) return;
+    original.warn(...args);
+  };
+
+  return () => {
+    console.log = original.log;
+    console.info = original.info;
+    console.warn = original.warn;
+  };
+}
 
 function CameraView({ userId, onResult }) {
+  const { t } = useLang();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const timerRef = useRef(null);
   const rafRef = useRef(null);
   const faceMeshRef = useRef(null);
+  const initializedRef = useRef(false);
   const processingRef = useRef(false);
   const isMeasuringRef = useRef(false);
   const qualityRef = useRef({
@@ -26,26 +91,29 @@ function CameraView({ userId, onResult }) {
   const prevFaceCenterRef = useRef(null);
   const latestFaceMetricsRef = useRef({ hasFace: false, movementScore: null, alignmentScore: null });
 
+  const [permissionError, setPermissionError] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isMeasuring, setIsMeasuring] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [faceMeshEnabled, setFaceMeshEnabled] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState('얼굴을 화면 중앙에 위치시켜주세요');
+  const [message, setMessage] = useState('cam_msg_no_face');
+  const [measurementFailed, setMeasurementFailed] = useState(false);
+  const [failReasons, setFailReasons] = useState([]);
   const [liveQuality, setLiveQuality] = useState({
-    lighting: { score: null, status: '대기', tip: '조명을 확인 중입니다.' },
-    movement: { score: null, status: '대기', tip: '움직임을 확인 중입니다.' },
-    alignment: { score: null, status: '대기', tip: '얼굴 정렬을 확인 중입니다.' },
+    lighting: { score: null, status: 'wait', tip: t('cam_tip_lighting_wait') },
+    movement: { score: null, status: 'wait', tip: t('cam_tip_movement_wait') },
+    alignment: { score: null, status: 'wait', tip: t('cam_tip_alignment_wait') },
   });
 
   const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
   const statusFromScore = (score) => {
-    if (score === null || Number.isNaN(Number(score))) return '대기';
+    if (score === null || Number.isNaN(Number(score))) return 'wait';
     const v = Number(score);
-    if (v >= 0.75) return '좋음';
-    if (v >= 0.55) return '보통';
-    return '개선 필요';
+    if (v >= 0.75) return 'good';
+    if (v >= 0.55) return 'mid';
+    return 'bad';
   };
 
   const estimateLightingScore = (ctx, w, h) => {
@@ -79,12 +147,17 @@ function CameraView({ userId, onResult }) {
   }, [isMeasuring]);
 
   useEffect(() => {
+    if (initializedRef.current) return undefined;
+    initializedRef.current = true;
+
     let unmounted = false;
+    const restoreConsole = suppressMediapipeWebglLogs();
 
     const init = async () => {
       try {
+        const FaceMesh = await loadFaceMeshScript();
         faceMeshRef.current = new FaceMesh({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
+          locateFile: (file) => `${FACE_MESH_CDN}/${file}`
         });
         faceMeshRef.current.setOptions({
           maxNumFaces: 1,
@@ -108,7 +181,7 @@ function CameraView({ userId, onResult }) {
         if (!faceMeshRef.current || !faceMeshEnabled) {
           setFaceDetected(true);
           setIsReady(true);
-          setMessage('얼굴이 감지되었습니다. 편안한 자세로 움직이지 말고 유지해주세요.');
+          setMessage('fl_ready');
           return;
         }
 
@@ -126,9 +199,9 @@ function CameraView({ userId, onResult }) {
 
           if (!isMeasuringRef.current) {
             if (hasFace) {
-              setMessage('얼굴이 감지되었습니다. 편안한 자세로 움직이지 말고 유지해주세요.');
+              setMessage('fl_ready');
             } else {
-              setMessage('얼굴이 감지되지 않았으니 얼굴을 화면 중앙에 위치시켜주세요.');
+              setMessage('cam_msg_no_face');
             }
           }
 
@@ -158,7 +231,7 @@ function CameraView({ userId, onResult }) {
             latestFaceMetricsRef.current = { hasFace: true, movementScore, alignmentScore };
 
             const liveCanvas = canvasRef.current;
-            const liveCtx = liveCanvas?.getContext('2d');
+            const liveCtx = liveCanvas?.getContext('2d', { willReadFrequently: true });
             let lightingScore = null;
             if (video && liveCanvas && liveCtx) {
               const srcW = video.videoWidth || 640;
@@ -175,17 +248,17 @@ function CameraView({ userId, onResult }) {
               lighting: {
                 score: lightingScore,
                 status: statusFromScore(lightingScore),
-                tip: '얼굴 정면에 균일한 빛이 들어오도록 조명을 조정해보세요.',
+                tip: t('sp_q_lighting') + ': ' + t('cam_quality_warn'),
               },
               movement: {
                 score: movementScore,
                 status: statusFromScore(movementScore),
-                tip: '측정 중에는 시선과 고개를 가능한 고정해 주세요.',
+                tip: t('cam_fail_tip2'),
               },
               alignment: {
                 score: alignmentScore,
                 status: statusFromScore(alignmentScore),
-                tip: '얼굴을 화면 중앙에 두고 턱선이 프레임 안에 들어오게 맞춰주세요.',
+                tip: t('cam_fail_tip1'),
               },
             });
 
@@ -198,30 +271,17 @@ function CameraView({ userId, onResult }) {
             const offsetX = (overlay.width - drawW) / 2;
             const offsetY = (overlay.height - drawH) / 2;
 
+            // x좌표를 미러링: 비디오가 CSS scaleX(-1)이므로 랜드마크도 반전
             ctx.strokeStyle = '#5C7CFA';
             ctx.lineWidth = 1;
             points.forEach((pt) => {
-              const x = pt.x * videoW * scale + offsetX;
+              const rawX = pt.x * videoW * scale + offsetX;
+              const x = overlay.width - rawX; // mirror x
               const y = pt.y * videoH * scale + offsetY;
               ctx.beginPath();
               ctx.arc(x, y, 1, 0, Math.PI * 2);
               ctx.stroke();
             });
-
-            // 중앙 상단 텍스트
-            const text = '얼굴이 감지되었습니다.';
-            ctx.font = 'bold 16px sans-serif';
-            const metrics = ctx.measureText(text);
-            const padX = 12;
-            const boxW = metrics.width + padX * 2;
-            const boxH = 30;
-            const boxX = (overlay.width - boxW) / 2;
-            const boxY = 14;
-
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
-            ctx.fillRect(boxX, boxY, boxW, boxH);
-            ctx.fillStyle = '#e0e7ff';
-            ctx.fillText(text, boxX + padX, boxY + 20);
           }
           if (!hasFace) {
             prevFaceCenterRef.current = null;
@@ -230,13 +290,13 @@ function CameraView({ userId, onResult }) {
               lighting: prev.lighting,
               movement: {
                 score: null,
-                status: '대기',
-                tip: '얼굴이 감지되면 움직임 품질을 실시간으로 표시합니다.',
+                status: 'wait',
+                tip: t('cam_msg_no_face'),
               },
               alignment: {
                 score: null,
-                status: '대기',
-                tip: '얼굴이 감지되면 정렬 품질을 실시간으로 표시합니다.',
+                status: 'wait',
+                tip: t('cam_msg_no_face'),
               },
             }));
           }
@@ -268,7 +328,7 @@ function CameraView({ userId, onResult }) {
           } catch (err) {
             setFaceMeshEnabled(false);
             setFaceDetected(true);
-            setMessage('얼굴 가이드 로딩에 문제가 있어 측정을 계속 진행합니다.');
+            setMessage('cam_msg_guide_load');
             return;
           } finally {
             processingRef.current = false;
@@ -282,10 +342,20 @@ function CameraView({ userId, onResult }) {
       }
     };
 
-    init().catch(() => setMessage('카메라 권한을 확인해주세요.'));
+    init().catch((err) => {
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setPermissionError(true);
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setMessage('cam_msg_no_cam');
+      } else {
+        setMessage(err?.message || 'cam_initializing');
+      }
+    });
 
     return () => {
       unmounted = true;
+      restoreConsole();
       if (timerRef.current) clearInterval(timerRef.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       const stream = videoRef.current?.srcObject;
@@ -311,12 +381,12 @@ function CameraView({ userId, onResult }) {
   const startCapture = async () => {
     if (!isReady || isMeasuring) return;
     if (faceMeshEnabled && !faceDetected) {
-      setMessage('얼굴이 감지되지 않았으니 얼굴을 화면 중앙에 위치시켜주세요.');
+      setMessage('cam_msg_no_face');
       return;
     }
 
     setIsMeasuring(true);
-    setMessage('측정 중... 움직이지 마시고 편안하게 유지해주세요');
+    setMessage('fl_measuring_good');
     qualityRef.current = {
       lightingSamples: [],
       movementSamples: [],
@@ -325,6 +395,15 @@ function CameraView({ userId, onResult }) {
       sampledFrames: 0,
     };
     prevFaceCenterRef.current = null;
+
+    const handleError = (err) => {
+      if ((err.message || '').includes('Payload Too Large') || (err.message || '').includes('전송 데이터가 너무 큽니다')) {
+        setMessage('cam_msg_too_large');
+      } else {
+        setMessage(err.message || 'cam_msg_error');
+      }
+      setIsMeasuring(false);
+    };
 
     try {
       const startRes = await startMeasurement(userId);
@@ -336,7 +415,7 @@ function CameraView({ userId, onResult }) {
         if (frame) {
           frames.push(frame);
           const canvas = canvasRef.current;
-          const ctx = canvas?.getContext('2d');
+          const ctx = canvas?.getContext('2d', { willReadFrequently: true });
           if (canvas && ctx) {
             const lightingScore = estimateLightingScore(ctx, canvas.width, canvas.height);
             qualityRef.current.lightingSamples.push(lightingScore);
@@ -359,7 +438,7 @@ function CameraView({ userId, onResult }) {
 
         if (frames.length >= TOTAL_FRAMES) {
           clearInterval(timerRef.current);
-          setMessage('분석 중입니다...');
+          setMessage('cam_msg_analysing');
 
           const avg = (arr) => arr.length ? arr.reduce((a, c) => a + c, 0) / arr.length : null;
           const qualityMetrics = {
@@ -372,60 +451,247 @@ function CameraView({ userId, onResult }) {
             method: 'frontend_vision',
           };
 
-          const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
-          onResult(res.data);
-          setMessage('밝은 곳에서 측정하면 더 정확해요');
-          setIsMeasuring(false);
+          // 품질 기준 미달 시 재측정 요구
+          const reasons = [];
+          const fdr = qualityMetrics.face_detected_ratio;
+          if (fdr !== null && fdr < 0.4) {
+            reasons.push(t('cam_fail_reason_face', { v: Math.round(fdr * 100) }));
+          }
+          if (qualityMetrics.movement_score !== null && qualityMetrics.movement_score < 0.35) {
+            reasons.push(t('cam_fail_reason_move'));
+          }
+          if (qualityMetrics.lighting_score !== null && qualityMetrics.lighting_score < 0.35) {
+            reasons.push(t('cam_fail_reason_light'));
+          }
+          if (reasons.length > 0) {
+            setFailReasons(reasons);
+            setMeasurementFailed(true);
+            setIsMeasuring(false);
+            setProgress(0);
+            return;
+          }
+
+          // interval 콜백 안의 reject는 바깥 try/catch로 전달되지 않으므로 여기서 직접 처리
+          try {
+            const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
+            onResult(res.data);
+            setMessage('cam_msg_after');
+            setIsMeasuring(false);
+          } catch (err) {
+            handleError(err);
+          }
         }
       }, Math.round(1000 / FPS));
     } catch (err) {
-      if ((err.message || '').includes('Payload Too Large') || (err.message || '').includes('전송 데이터가 너무 큽니다')) {
-        setMessage('전송 용량이 커서 실패했어요. 자동 압축 설정을 적용했으니 다시 시도해주세요.');
-      } else {
-        setMessage(err.message || '측정 중 오류가 발생했습니다.');
-      }
-      setIsMeasuring(false);
+      handleError(err);
     }
   };
 
+  // 품질 미달으로 인한 재측정 요구 화면
+  if (measurementFailed) {
+    return (
+      <div className="card measurement-failed-card">
+        <div className="failed-icon-svg" aria-hidden="true">
+          <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="28" cy="28" r="25" stroke="#f97316" strokeWidth="2.5" />
+            <path d="M28 17v14" stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
+            <circle cx="28" cy="38" r="2.2" fill="#f97316" />
+          </svg>
+        </div>
+        <h3>{t('cam_fail_title')}</h3>
+        <p style={{ marginBottom: 16 }}>{t('cam_fail_body')}</p>
+        <ul className="fail-reason-list">
+          {failReasons.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
+        <div className="fail-tips">
+          <strong>{t('cam_fail_tips')}</strong>
+          <ul>
+            <li>{t('cam_fail_tip1')}</li>
+            <li>{t('cam_fail_tip2')}</li>
+            <li>{t('cam_fail_tip3')}</li>
+          </ul>
+        </div>
+        <button onClick={() => { setMeasurementFailed(false); setFailReasons([]); setProgress(0); }}
+          style={{ marginTop: 8 }}>
+          {t('cam_fail_retry')}
+        </button>
+      </div>
+    );
+  }
+
+  if (permissionError) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: '32px 16px' }}>
+        <div className="permission-icon-svg" aria-hidden="true">
+          <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="8" y="16" width="40" height="30" rx="5" stroke="#94a3b8" strokeWidth="2.2" />
+            <circle cx="28" cy="31" r="8" stroke="#94a3b8" strokeWidth="2.2" />
+            <path d="M22 16l6 4 6-4" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+            <line x1="38" y1="16" x2="18" y2="40" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        </div>
+        <h3 style={{ margin: '0 0 8px' }}>{t('cam_perm_title')}</h3>
+        <p style={{ marginBottom: 16 }}>
+          {t('cam_perm_body1')}<br />
+          {t('cam_perm_body2')}<br />
+          {t('cam_perm_body3')}
+        </p>
+        <button onClick={() => window.location.reload()}>{t('cam_perm_refresh')}</button>
+      </div>
+    );
+  }
+
+  const RING_R = 38;
+  const RING_C = 2 * Math.PI * RING_R; // ≈ 238.76
+
   return (
+    <>
     <div className="card">
       <div className="camera-wrap">
-        <video ref={videoRef} className="camera" muted playsInline />
+        <video ref={videoRef} className="camera" muted playsInline style={{ transform: 'scaleX(-1)' }} />
         <canvas ref={overlayRef} className="overlay" />
+        {/* 상황별 얼굴 감지 안내 메시지 */}
+        {isReady && (() => {
+          const mv = liveQuality.movement.score;
+          const al = liveQuality.alignment.score;
+          const li = liveQuality.lighting.score;
+          let labelKey = '';
+          let cls = '';
+          if (!faceDetected) {
+            labelKey = 'fl_no_face';
+            cls = ' no-face';
+          } else if (al !== null && al < 0.15) {
+            labelKey = 'fl_align_critical';
+            cls = ' error';
+          } else if (al !== null && al < 0.33) {
+            labelKey = 'fl_align_bad';
+            cls = ' error';
+          } else if (al !== null && al < 0.52) {
+            labelKey = 'fl_align_off';
+            cls = ' issue';
+          } else if (li !== null && li < 0.15) {
+            labelKey = 'fl_light_critical';
+            cls = ' error';
+          } else if (mv !== null && mv < 0.15) {
+            labelKey = 'fl_move_extreme';
+            cls = ' error';
+          } else if (mv !== null && mv < 0.33) {
+            labelKey = 'fl_move_bad';
+            cls = ' error';
+          } else if (li !== null && li < 0.3) {
+            labelKey = 'fl_light_bad';
+            cls = ' error';
+          } else if (mv !== null && mv < 0.52) {
+            labelKey = 'fl_move_slight';
+            cls = ' issue';
+          } else if (li !== null && li < 0.5) {
+            labelKey = 'fl_light_dim';
+            cls = ' issue';
+          } else if (isMeasuring && mv !== null && mv < 0.6) {
+            labelKey = 'fl_measuring_move';
+            cls = ' issue';
+          } else if (isMeasuring && li !== null && li < 0.65) {
+            labelKey = 'fl_measuring_light';
+            cls = ' issue';
+          } else if (isMeasuring) {
+            labelKey = 'fl_measuring_good';
+            cls = ' ready';
+          } else if (mv !== null && al !== null && li !== null && mv > 0.75 && al > 0.7 && li > 0.65) {
+            labelKey = 'fl_ready_good';
+            cls = ' ready';
+          } else {
+            labelKey = 'fl_ready';
+            cls = ' ready';
+          }
+          return (
+            <div className={`face-detected-label${cls}`}>
+              <span className="fdi-dot" />
+              {t(labelKey)}
+            </div>
+          );
+        })()}
+        {isMeasuring && (
+          <div className="circular-progress" aria-label={`${t('cam_measuring')} ${progress}%`}>
+            <svg width="96" height="96" viewBox="0 0 96 96">
+              <circle cx="48" cy="48" r={RING_R} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="6" />
+              <circle
+                cx="48" cy="48" r={RING_R}
+                fill="none"
+                stroke="#5C7CFA"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={RING_C}
+                strokeDashoffset={RING_C * (1 - progress / 100)}
+                transform="rotate(-90 48 48)"
+                style={{ transition: 'stroke-dashoffset 0.25s linear' }}
+              />
+            </svg>
+            <span className="circular-progress-label">{progress}%</span>
+          </div>
+        )}
+        {!isReady && !permissionError && (
+          <div className="camera-init-overlay">
+            <div className="skeleton" style={{ width: 120, height: 14, borderRadius: 7, margin: '0 auto 8px' }} />
+            <small style={{ color: '#e0e7ff', opacity: 0.8 }}>{t('cam_init_overlay')}</small>
+          </div>
+        )}
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
-      <p>{message}</p>
+      <p>{t(message)}</p>
       <div className="check-item" style={{ marginBottom: 10 }}>
         <div className="row between" style={{ marginBottom: 6 }}>
-          <strong>실시간 측정 품질 체크리스트</strong>
-          <small>카메라 실측</small>
+          <strong>{t('cam_quality_title')}</strong>
+          <small>{t('cam_quality_sub')}</small>
         </div>
         {[
-          { key: 'lighting', label: '조명' },
-          { key: 'movement', label: '움직임' },
-          { key: 'alignment', label: '얼굴정렬' },
+          { key: 'lighting', label: t('cam_q_lighting') },
+          { key: 'movement', label: t('cam_q_movement') },
+          { key: 'alignment', label: t('cam_q_alignment') },
         ].map((item) => {
           const q = liveQuality[item.key];
-          const klass = q.status === '좋음' ? 'good' : q.status === '보통' ? 'mid' : q.status === '개선 필요' ? 'bad' : '';
+          const klass = q.status === 'good' ? 'good' : q.status === 'mid' ? 'mid' : q.status === 'bad' ? 'bad' : '';
+          const statusText = q.status === 'good' ? t('cam_q_good') : q.status === 'mid' ? t('cam_q_mid') : q.status === 'bad' ? t('cam_q_bad') : t('cam_q_wait');
           return (
             <div key={item.key} className="check-item" style={{ marginBottom: 6 }}>
               <div className="row between">
                 <strong>{item.label}</strong>
-                <span className={`quality ${klass}`}>{q.status}{q.score !== null ? ` (${Math.round(q.score * 100)}%)` : ''}</span>
+                <span className={`quality ${klass}`}>{statusText}{q.score !== null ? ` (${Math.round(q.score * 100)}%)` : ''}</span>
               </div>
               <small>{q.tip}</small>
             </div>
           );
         })}
       </div>
-      <div className="progress-wrap">
+      <div className="progress-wrap" aria-hidden={!isMeasuring} style={{ opacity: isMeasuring ? 1 : 0.3 }}>
         <div className="progress" style={{ width: `${progress}%` }} />
       </div>
-      <button onClick={startCapture} disabled={!isReady || isMeasuring}>
-        {isMeasuring ? '측정 중...' : '10초 측정 시작'}
-      </button>
+      {!isMeasuring && isReady && Object.values(liveQuality).some((q) => q.status === 'bad') && (
+        <div className="quality-warning" role="alert">
+          {t('cam_quality_warn')}
+        </div>
+      )}
+      <div className="fab-spacer" />
     </div>
+    {createPortal(
+      <button
+        onClick={startCapture}
+        disabled={!isReady || isMeasuring || (faceMeshEnabled && !faceDetected)}
+        className={`fab-measure${isMeasuring ? ' btn-measuring' : ''}`}
+        title={faceMeshEnabled && !faceDetected ? t('cam_face_required') : undefined}
+      >
+        {isMeasuring
+          ? t('cam_measuring')
+          : !isReady
+          ? t('cam_initializing')
+          : (faceMeshEnabled && !faceDetected)
+          ? t('cam_face_required')
+          : t('cam_start')}
+      </button>,
+      document.body
+    )}
+  </>
   );
 }
 

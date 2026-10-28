@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
+
 import cv2
 import mediapipe as mp
 import numpy as np
+from mediapipe.tasks.python import vision
 from scipy.stats import kurtosis, skew
 from scipy.signal import find_peaks, welch
 
@@ -11,26 +14,37 @@ from utils.signal_processing import bandpass_filter, normalize_signal
 
 FOREHEAD_LANDMARKS = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288]
 
+FACE_LANDMARKER_MODEL = os.path.join(os.path.dirname(__file__), "assets", "face_landmarker.task")
+
 
 class RPPGEstimator:
-    def __init__(self):
-        self.face_mesh = mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            refine_landmarks=False,
-            min_detection_confidence=0.5,
+    def __init__(self, model_path: str = FACE_LANDMARKER_MODEL):
+        # 경로 대신 버퍼로 넘겨야 한글 등 비ASCII 경로에서도 MediaPipe가 모델을 읽을 수 있음
+        with open(model_path, "rb") as f:
+            self._model_buffer = f.read()
+
+    def _create_landmarker(self):
+        # VIDEO 모드는 타임스탬프가 단조 증가해야 하므로 요청마다 새로 만들어 요청 간 상태 공유를 피함
+        options = vision.FaceLandmarkerOptions(
+            base_options=mp.tasks.BaseOptions(model_asset_buffer=self._model_buffer),
+            running_mode=vision.RunningMode.VIDEO,
+            num_faces=1,
+            min_face_detection_confidence=0.5,
+            min_face_presence_confidence=0.5,
             min_tracking_confidence=0.5,
         )
+        return vision.FaceLandmarker.create_from_options(options)
 
-    def _extract_forehead_rgb(self, frame_bgr: np.ndarray):
+    def _extract_forehead_rgb(self, landmarker, frame_bgr: np.ndarray, timestamp_ms: int):
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        results = self.face_mesh.process(frame_rgb)
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.ascontiguousarray(frame_rgb))
+        results = landmarker.detect_for_video(image, timestamp_ms)
 
-        if not results.multi_face_landmarks:
+        if not results.face_landmarks:
             return None
 
         h, w = frame_bgr.shape[:2]
-        landmarks = results.multi_face_landmarks[0].landmark
+        landmarks = results.face_landmarks[0]
         points = []
 
         for idx in FOREHEAD_LANDMARKS:
@@ -51,11 +65,16 @@ class RPPGEstimator:
 
     def extract_signal(self, frames: list[np.ndarray], frame_rate: float):
         rgb_series = []
+        frame_interval_ms = 1000.0 / frame_rate if frame_rate > 0 else 1000.0 / 30.0
 
-        for frame in frames:
-            rgb_mean = self._extract_forehead_rgb(frame)
-            if rgb_mean is not None:
-                rgb_series.append(rgb_mean)
+        landmarker = self._create_landmarker()
+        try:
+            for i, frame in enumerate(frames):
+                rgb_mean = self._extract_forehead_rgb(landmarker, frame, int(i * frame_interval_ms))
+                if rgb_mean is not None:
+                    rgb_series.append(rgb_mean)
+        finally:
+            landmarker.close()
 
         if len(rgb_series) < max(30, int(frame_rate * 3)):
             raise ValueError("유효한 얼굴 ROI 프레임이 충분하지 않습니다.")
@@ -108,8 +127,8 @@ class RPPGEstimator:
         lf_mask = (freqs >= 0.04) & (freqs < 0.15)
         hf_mask = (freqs >= 0.15) & (freqs < 0.4)
 
-        lf_power = float(np.trapz(psd[lf_mask], freqs[lf_mask])) if np.any(lf_mask) else 0.0
-        hf_power = float(np.trapz(psd[hf_mask], freqs[hf_mask])) if np.any(hf_mask) else 0.0
+        lf_power = float(np.trapezoid(psd[lf_mask], freqs[lf_mask])) if np.any(lf_mask) else 0.0
+        hf_power = float(np.trapezoid(psd[hf_mask], freqs[hf_mask])) if np.any(hf_mask) else 0.0
 
         features["lf_power"] = lf_power
         features["hf_power"] = hf_power
