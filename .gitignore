@@ -29,3 +29,7 @@ frontend/.env
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Test / E2E artifacts
+.pytest_cache/
+frontend/e2e-failure.png

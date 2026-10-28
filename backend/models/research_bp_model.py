@@ -8,6 +8,10 @@ import numpy as np
 from scipy.signal import butter, filtfilt, resample
 
 
+def _parse_floats(text: str) -> np.ndarray:
+    return np.array(text.split(), dtype=np.float64)
+
+
 class ResearchBPModelBridge:
     """Bridge to load and run existing Yonsei research BP model (.h5)."""
 
@@ -158,11 +162,11 @@ class ResearchBPModelBridge:
                 label_scale_match = re.search(r"Label Statistics:.*?Scale:\s*\[([^\]]+)\]", text, re.S)
 
                 if signal_mean_match and signal_scale_match:
-                    self.signal_mean = np.fromstring(signal_mean_match.group(1), sep=" ")
-                    self.signal_scale = np.fromstring(signal_scale_match.group(1), sep=" ")
+                    self.signal_mean = _parse_floats(signal_mean_match.group(1))
+                    self.signal_scale = _parse_floats(signal_scale_match.group(1))
                 if label_mean_match and label_scale_match:
-                    self.label_mean = np.fromstring(label_mean_match.group(1), sep=" ")
-                    self.label_scale = np.fromstring(label_scale_match.group(1), sep=" ")
+                    self.label_mean = _parse_floats(label_mean_match.group(1))
+                    self.label_scale = _parse_floats(label_scale_match.group(1))
                 return
             except Exception:
                 continue

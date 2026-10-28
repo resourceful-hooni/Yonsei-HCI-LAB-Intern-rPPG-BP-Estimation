@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  NODE_VERSION: "24"
+  PYTHON_VERSION: "3.12"
+
 jobs:
   frontend-build:
     runs-on: ubuntu-latest
@@ -14,44 +18,136 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
       - name: Build frontend
         run: npm run build
 
-      - name: Security audit (high, prod deps)
-        run: npm audit --audit-level=high --omit=dev
-        continue-on-error: true
+      - name: Security audit (high)
+        run: npm audit --audit-level=high
 
-  backend-sanity:
-    runs-on: ubuntu-latest
+  backend-tests:
+    name: backend-tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: backend
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: backend/requirements*.txt
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
+      # MediaPipe Tasks는 Linux에서 libEGL/libGLES를 동적 로드함
+      - name: Install MediaPipe system libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgles2
 
-      - name: Resolve requirements dry-run
-        run: pip install --dry-run -r requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
 
-      - name: Syntax check backend entry
-        run: python -m py_compile app.py
+      - name: Run tests
+        run: python -m pytest -v
+
+      - name: Research extras resolve (TensorFlow)
+        if: runner.os == 'Linux'
+        run: python -m pip install --dry-run -r requirements-research.txt
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and build
+        run: |
+          sudo apt-get update && sudo apt-get install -y libegl1 libgles2
+          python -m pip install -r backend/requirements.txt
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+
+      - name: Seed data and start backend
+        working-directory: backend
+        env:
+          DATABASE_PATH: ${{ runner.temp }}/e2e.db
+        run: |
+          python -c "from app import create_app; app = create_app(); [app.db.save_measurement('demo-user', s, d, g, 0.8) for s, d, g in [(118, 78, 95), (122, 80, 101), (125, 82, 98)]]"
+          nohup python app.py > "$RUNNER_TEMP/backend.log" 2>&1 &
+          for i in $(seq 60); do curl -sf http://127.0.0.1:5000/api/health && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/backend.log"; exit 1
+
+      - name: Start frontend (production build)
+        working-directory: frontend
+        run: |
+          nohup npm run preview > "$RUNNER_TEMP/frontend.log" 2>&1 &
+          for i in $(seq 30); do curl -sf http://localhost:3000 > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/frontend.log"; exit 1
+
+      - name: Prepare fake camera video
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          curl -sfL -o "$RUNNER_TEMP/portrait.jpg" https://storage.googleapis.com/mediapipe-assets/portrait.jpg
+          ffmpeg -loglevel error -loop 1 -i "$RUNNER_TEMP/portrait.jpg" -t 5 -r 30 -vf "crop=iw:iw*3/4:0:0,scale=640:480,eq=brightness=0.08" -pix_fmt yuv420p "$RUNNER_TEMP/face.y4m"
+
+      - name: Run smoke test
+        working-directory: frontend
+        env:
+          FAKE_VIDEO: ${{ runner.temp }}/face.y4m
+        run: |
+          npm install --no-save playwright@1.64.1
+          npx playwright install --with-deps chromium
+          node e2e/smoke.mjs
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-failure
+          path: |
+            frontend/e2e-failure.png
+            ${{ runner.temp }}/backend.log
+            ${{ runner.temp }}/frontend.log
+
+  # 브랜치 보호의 필수 체크 이름. 앞 잡이 실패해 이 잡이 skipped 되면 통과로 간주되므로 always()로 직접 판정
+  backend-sanity:
+    if: always()
+    needs: [backend-tests, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require backend tests and e2e to pass
+        run: |
+          echo "backend-tests=${{ needs.backend-tests.result }} e2e=${{ needs.e2e.result }}"
+          test "${{ needs.backend-tests.result }}" = "success" && test "${{ needs.e2e.result }}" = "success"
