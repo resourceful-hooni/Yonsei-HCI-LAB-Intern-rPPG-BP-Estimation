@@ -396,6 +396,15 @@ function CameraView({ userId, onResult }) {
     };
     prevFaceCenterRef.current = null;
 
+    const handleError = (err) => {
+      if ((err.message || '').includes('Payload Too Large') || (err.message || '').includes('전송 데이터가 너무 큽니다')) {
+        setMessage('cam_msg_too_large');
+      } else {
+        setMessage(err.message || 'cam_msg_error');
+      }
+      setIsMeasuring(false);
+    };
+
     try {
       const startRes = await startMeasurement(userId);
       const measurementId = startRes.measurement_id;
@@ -462,19 +471,19 @@ function CameraView({ userId, onResult }) {
             return;
           }
 
-          const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
-          onResult(res.data);
-          setMessage('cam_msg_after');
-          setIsMeasuring(false);
+          // interval 콜백 안의 reject는 바깥 try/catch로 전달되지 않으므로 여기서 직접 처리
+          try {
+            const res = await processMeasurement(measurementId, frames, FPS, qualityMetrics);
+            onResult(res.data);
+            setMessage('cam_msg_after');
+            setIsMeasuring(false);
+          } catch (err) {
+            handleError(err);
+          }
         }
       }, Math.round(1000 / FPS));
     } catch (err) {
-      if ((err.message || '').includes('Payload Too Large') || (err.message || '').includes('전송 데이터가 너무 큽니다')) {
-        setMessage('cam_msg_too_large');
-      } else {
-        setMessage(err.message || 'cam_msg_error');
-      }
-      setIsMeasuring(false);
+      handleError(err);
     }
   };
 
