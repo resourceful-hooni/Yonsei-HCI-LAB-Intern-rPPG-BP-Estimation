@@ -4,5 +4,5 @@ numpy==2.5.4
 scipy==1.18.1
 # mediapipe가 opencv-contrib-python에 의존하므로 opencv-python을 따로 설치하면 cv2가 충돌함
 opencv-contrib-python==5.0.0.93
-mediapipe==1.2.0
+mediapipe==1.2.2
 python-dotenv==1.2.4
